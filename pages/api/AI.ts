@@ -1,10 +1,10 @@
 // pages/api/AI.ts
-import type { NextApiRequest, NextApiResponse } from 'next';
+import type { NextApiRequest, NextApiResponse } from "next";
 import Groq from "groq-sdk";
 
 // AMAN: Mengambil API Key dari Environment Variables
-const groq = new Groq({ 
-  apiKey: process.env.GROQ_API_KEY 
+const groq = new Groq({
+  apiKey: process.env.GROQ_API_KEY,
 });
 
 const TAVILY_API_KEY = process.env.TAVILY_API_KEY;
@@ -24,12 +24,12 @@ async function researchWeb(query: string) {
         query: query,
         search_depth: "basic",
         max_results: 3,
-        include_answer: true 
+        include_answer: true,
       }),
     });
 
     const data = await response.json();
-    
+
     if (data.results && data.results.length > 0) {
       // Menggabungkan ringkasan berita/data dari internet
       const searchContext = data.results
@@ -37,7 +37,7 @@ async function researchWeb(query: string) {
         .join("\n\n");
       return searchContext;
     }
-    
+
     return "Tidak ditemukan data terbaru di internet.";
   } catch (e) {
     console.error("Research Error:", e);
@@ -45,24 +45,38 @@ async function researchWeb(query: string) {
   }
 }
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.method !== 'POST') return res.status(405).send('Method not allowed');
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse
+) {
+  if (req.method !== "POST") return res.status(405).send("Method not allowed");
 
   const { prompt, history = [] } = req.body;
 
   try {
     // 1. Dapatkan Waktu Real-time WIB
     const now = new Date();
-    const timeWIB = now.toLocaleString("id-ID", { 
+    const timeWIB = now.toLocaleString("id-ID", {
       timeZone: "Asia/Jakarta",
       dateStyle: "full",
-      timeStyle: "medium"
+      timeStyle: "medium",
     });
 
     // 2. Logika Deteksi Riset (otomatis riset jika tanya info 2024/2025 atau berita)
-    const timeKeywords = ["2024", "2025", "terbaru", "hari ini", "siapa", "berita", "skor", "harga"];
-    const needsResearch = timeKeywords.some(keyword => prompt.toLowerCase().includes(keyword));
-    
+    const timeKeywords = [
+      "2024",
+      "2025",
+      "terbaru",
+      "hari ini",
+      "siapa",
+      "berita",
+      "skor",
+      "harga",
+    ];
+    const needsResearch = timeKeywords.some((keyword) =>
+      prompt.toLowerCase().includes(keyword)
+    );
+
     let researchData = "";
     if (needsResearch) {
       researchData = await researchWeb(prompt);
@@ -76,21 +90,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         
         KARAKTER:
         - Kamu asisten yang ramah, cerdas, humoris, dan menggunakan bahasa Indonesia santai (gaul/ngobrol).
-        - Kamu ahli pemrograman (coding). Selalu berikan kode dalam format Markdown.
+        - Kamu ahli pemrograman (coding), tapi HANYA berikan kode jika user bertanya tentang teknis, error, atau meminta contoh kodingan. 
+        - Jika pertanyaan umum, jawablah dengan teks penjelasan yang santai tanpa kode.
         
         KONTEKS WAKTU:
         - Waktu sekarang (WIB): ${timeWIB}.
         
         PENGETAHUAN TERBARU (HASIL RISET INTERNET):
-        ${researchData ? researchData : "Gunakan basis data internalmu (cutoff 2023)."}
+        ${
+          researchData
+            ? researchData
+            : "Gunakan basis data internalmu (cutoff 2023)."
+        }
         
         INSTRUKSI KHUSUS:
         - Gunakan data HASIL RISET untuk menjawab pertanyaan tentang peristiwa tahun 2024-2025.
-        - Jawablah secara natural seolah-olah kamu memang tahu informasinya.
-        - Jika user memberikan kode, berikan solusi yang efisien.
-        - Selalu ingat konteks percakapan sebelumnya.`
+        - Jika memberikan kode, gunakan format Markdown yang rapi.
+        - Selalu ingat konteks percakapan sebelumnya.`,
       },
-      ...history.slice(-10).map((chat: any) => ({
+      // Ambil 3-5 percakapan terakhir agar memori tetap ada tapi token irit
+      ...history.slice(-3).map((chat: any) => ({
         role: chat.role === "user" ? "user" : "assistant",
         content: chat.content,
       })),
@@ -100,12 +119,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       },
     ];
 
-    // 4. Kirim ke model Llama 3.3 70B di Groq
+    // 4. Kirim ke model yang lebih ringan (Llama 3.1 8B)
     const chatCompletion = await groq.chat.completions.create({
       messages: messages as any,
-      model: "llama-3.3-70b-versatile",
-      temperature: 0.7, 
-      max_tokens: 2048,
+      model: "llama-3.1-8b-instant", // Model paling hemat token di Groq
+      temperature: 0.7,
+      max_tokens: 1024, // Kita batasi panjang respon agar irit
       top_p: 1,
       stream: false,
     });
@@ -113,17 +132,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const responseText = chatCompletion.choices[0]?.message?.content || "";
 
     // 5. Kirim Respon ke Frontend
-    res.status(200).json({ 
-      text: responseText, 
+    res.status(200).json({
+      text: responseText,
       topic: "roco-ai-logic",
-      currentTime: timeWIB 
+      currentTime: timeWIB,
     });
-
   } catch (error: any) {
     console.error("Groq Error:", error);
-    res.status(500).json({ 
-      text: "Waduh, otak Roco AI lagi panas nih. Coba tanya lagi ya!", 
-      error: error.message 
+    res.status(500).json({
+      text: "Waduh, otak Roco AI lagi panas nih. Coba tanya lagi ya!",
+      error: error.message,
     });
   }
 }
