@@ -1,94 +1,129 @@
+// pages/api/AI.ts
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { knowledgeBase } from '../../data/knowledge';
-import { MathEvaluator } from '@/utils/advancedLogic';
+import Groq from "groq-sdk";
 
-// Fungsi memotong imbuhan
-function simpleStemmer(word: string): string {
-  return word
-    .toLowerCase()
-    .replace(/^(me|pe|be|di|te|ke)(ny|ng|l|r)?/g, '')
-    .replace(/(kan|an|i|nya)$/g, '');
-}
+// AMAN: Mengambil API Key dari Environment Variables
+const groq = new Groq({ 
+  apiKey: process.env.GROQ_API_KEY 
+});
 
-// Format ke Title Case untuk Wikipedia (Bitcoin, Indonesia, Bumi)
-function toTitleCase(str: string) {
-  return str.replace(/\w\S*/g, (txt) => txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase());
-}
+const TAVILY_API_KEY = process.env.TAVILY_API_KEY;
 
-// Fungsi Riset Wikipedia
-async function conductResearch(topic: string) {
-  if (!topic || topic.length < 2) return null;
+// Fungsi untuk melakukan riset real-time ke internet
+async function researchWeb(query: string) {
+  if (!TAVILY_API_KEY) {
+    return "Fitur riset belum dikonfigurasi di environment variables.";
+  }
+
   try {
-    const cleanTopic = topic.replace(/[?]/g, '').trim();
-    const formattedTopic = toTitleCase(cleanTopic);
-    const searchUrl = `https://id.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(formattedTopic)}`;
-    
-    const res = await fetch(searchUrl);
-    if (res.status !== 200) return null;
+    const response = await fetch("https://api.tavily.com/search", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        api_key: TAVILY_API_KEY,
+        query: query,
+        search_depth: "basic",
+        max_results: 3,
+        include_answer: true 
+      }),
+    });
 
-    const data = await res.json();
-    if (data.extract) {
-      return `Berdasarkan riset saya: ${data.extract} (Sumber: Wikipedia)`;
+    const data = await response.json();
+    
+    if (data.results && data.results.length > 0) {
+      // Menggabungkan ringkasan berita/data dari internet
+      const searchContext = data.results
+        .map((res: any) => `- ${res.title}: ${res.content}`)
+        .join("\n\n");
+      return searchContext;
     }
-    return null;
-  } catch (error) {
-    return null;
+    
+    return "Tidak ditemukan data terbaru di internet.";
+  } catch (e) {
+    console.error("Research Error:", e);
+    return "Gagal melakukan riset real-time.";
   }
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') return res.status(405).send('Method not allowed');
 
-  const { prompt, history } = req.body;
-  if (!prompt) return res.status(400).json({ error: 'Prompt kosong' });
+  const { prompt, history = [] } = req.body;
 
-  const cleanPrompt = prompt.toLowerCase().trim();
-  
-  // --- 1. LOGIKA MATEMATIKA (High Priority) ---
-  const mathExpr = MathEvaluator.findMathExpression(cleanPrompt);
-  if (mathExpr && (cleanPrompt.includes("hitung") || cleanPrompt.includes("berapa"))) {
-    const result = MathEvaluator.calculate(mathExpr);
-    return res.status(200).json({ 
-      text: `Berdasarkan perhitungan logika saya, hasil dari ${mathExpr} adalah **${result}**.`, 
-      topic: "math" 
-    });
-  }
-
-  // --- 2. LOGIKA RISET DATA (Wikipedia + Keyword Extraction) ---
-  const researchKeywords = ["siapa", "apa itu", "jelaskan", "sejarah", "pengertian", "dimana"];
-  const isAskingData = researchKeywords.some(k => cleanPrompt.startsWith(k));
-
-  if (isAskingData) {
-    // Ambil subjek setelah kata tanya
-    const subject = cleanPrompt.split(" ").slice(2).join(" ");
-    if (subject.length > 2) {
-      const data = await conductResearch(subject);
-      if (data) return res.status(200).json({ text: data, topic: "research" });
-    }
-  }
-
-  // --- 3. KNOWLEDGE BASE DENGAN WEIGHTED SCORING ---
-  const words = cleanPrompt.split(/\s+/);
-  let bestMatch = { response: "", score: 0, topic: "" };
-
-  knowledgeBase.forEach((entry) => {
-    let currentScore = 0;
-    entry.keywords.forEach(kw => {
-      if (cleanPrompt.includes(kw)) currentScore += 2; // Exact phrase match
+  try {
+    // 1. Dapatkan Waktu Real-time WIB
+    const now = new Date();
+    const timeWIB = now.toLocaleString("id-ID", { 
+      timeZone: "Asia/Jakarta",
+      dateStyle: "full",
+      timeStyle: "medium"
     });
 
-    if (currentScore > bestMatch.score) {
-      const randomIndex = Math.floor(Math.random() * entry.responses.length);
-      bestMatch = { response: entry.responses[randomIndex], score: currentScore, topic: entry.topic };
+    // 2. Logika Deteksi Riset (otomatis riset jika tanya info 2024/2025 atau berita)
+    const timeKeywords = ["2024", "2025", "terbaru", "hari ini", "siapa", "berita", "skor", "harga"];
+    const needsResearch = timeKeywords.some(keyword => prompt.toLowerCase().includes(keyword));
+    
+    let researchData = "";
+    if (needsResearch) {
+      researchData = await researchWeb(prompt);
     }
-  });
 
-  // --- 4. FALLBACK STRATEGY ---
-  let finalResponse = bestMatch.response;
-  if (bestMatch.score < 1) {
-    const wikiFallback = await conductResearch(cleanPrompt);
-    finalResponse = wikiFallback || "Maaf, saya tidak menemukan data tersebut di memori lokal maupun database riset saya. Bisa coba tanyakan dengan kata kunci lain?";
+    // 3. Siapkan System Prompt
+    const messages = [
+      {
+        role: "system",
+        content: `Nama kamu adalah Roco AI (Ro: Robot, Co: Code). Kamu diciptakan oleh Arno.
+        
+        KARAKTER:
+        - Kamu asisten yang ramah, cerdas, humoris, dan menggunakan bahasa Indonesia santai (gaul/ngobrol).
+        - Kamu ahli pemrograman (coding). Selalu berikan kode dalam format Markdown.
+        
+        KONTEKS WAKTU:
+        - Waktu sekarang (WIB): ${timeWIB}.
+        
+        PENGETAHUAN TERBARU (HASIL RISET INTERNET):
+        ${researchData ? researchData : "Gunakan basis data internalmu (cutoff 2023)."}
+        
+        INSTRUKSI KHUSUS:
+        - Gunakan data HASIL RISET untuk menjawab pertanyaan tentang peristiwa tahun 2024-2025.
+        - Jawablah secara natural seolah-olah kamu memang tahu informasinya.
+        - Jika user memberikan kode, berikan solusi yang efisien.
+        - Selalu ingat konteks percakapan sebelumnya.`
+      },
+      ...history.slice(-10).map((chat: any) => ({
+        role: chat.role === "user" ? "user" : "assistant",
+        content: chat.content,
+      })),
+      {
+        role: "user",
+        content: prompt,
+      },
+    ];
+
+    // 4. Kirim ke model Llama 3.3 70B di Groq
+    const chatCompletion = await groq.chat.completions.create({
+      messages: messages as any,
+      model: "llama-3.3-70b-versatile",
+      temperature: 0.7, 
+      max_tokens: 2048,
+      top_p: 1,
+      stream: false,
+    });
+
+    const responseText = chatCompletion.choices[0]?.message?.content || "";
+
+    // 5. Kirim Respon ke Frontend
+    res.status(200).json({ 
+      text: responseText, 
+      topic: "roco-ai-logic",
+      currentTime: timeWIB 
+    });
+
+  } catch (error: any) {
+    console.error("Groq Error:", error);
+    res.status(500).json({ 
+      text: "Waduh, otak Roco AI lagi panas nih. Coba tanya lagi ya!", 
+      error: error.message 
+    });
   }
-
-  res.status(200).json({ text: finalResponse, topic: bestMatch.topic || "unknown" });
 }
