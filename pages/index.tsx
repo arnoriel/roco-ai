@@ -20,8 +20,9 @@ const openings = [
   "Tanyakan apa saja, Roco akan carikan jawabannya!"
 ];
 
-// --- KOMPONEN BARU UNTUK CODE SNIPPET ---
-const CodeBlock = ({ node, inline, className, children, ...props }: any) => {
+// --- KOMPONEN CODE SNIPPET (ADAPTIVE THEME) ---
+// Kita tambahkan prop 'dark' agar dia tahu warna apa yang harus dipakai
+const CodeBlock = ({ node, inline, className, children, dark, ...props }: any) => {
   const [copied, setCopied] = useState(false);
   const match = /language-(\w+)/.exec(className || "");
   const codeString = String(children).replace(/\n$/, "");
@@ -34,8 +35,11 @@ const CodeBlock = ({ node, inline, className, children, ...props }: any) => {
 
   if (!inline && match) {
     return (
-      <div className="my-4 rounded-xl overflow-hidden border border-white/10 bg-[#0d0d0d] group/code relative">
-        <div className="flex items-center justify-between px-4 py-2 bg-white/5 border-b border-white/10">
+      <div className={`my-4 rounded-xl overflow-hidden border shadow-sm group/code relative 
+        ${dark ? "bg-[#0d0d0d] border-white/10" : "bg-slate-900 border-slate-200"}`}>
+        
+        <div className={`flex items-center justify-between px-4 py-2 border-b 
+          ${dark ? "bg-white/5 border-white/10" : "bg-black/20 border-white/5"}`}>
           <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
             {match[1]}
           </span>
@@ -46,15 +50,21 @@ const CodeBlock = ({ node, inline, className, children, ...props }: any) => {
             {copied ? "Copied!" : "Copy Code"}
           </button>
         </div>
+        
         <div className="p-4 overflow-x-auto custom-scrollbar">
-          <code className="text-sm font-mono leading-relaxed" {...props}>
+          <code className="text-sm font-mono leading-relaxed text-slate-100" {...props}>
             {children}
           </code>
         </div>
       </div>
     );
   }
-  return <code className="bg-slate-800 px-1.5 py-0.5 rounded text-sm font-mono" {...props}>{children}</code>;
+  return (
+    <code className={`px-1.5 py-0.5 rounded text-sm font-mono 
+      ${dark ? "bg-white/10 text-pink-400" : "bg-slate-100 text-pink-600"}`} {...props}>
+      {children}
+    </code>
+  );
 };
 
 export default function Home() {
@@ -258,7 +268,7 @@ export default function Home() {
 
           <div className={`mt-4 pt-4 border-t ${isDarkMode ? "border-white/10" : "border-slate-200"}`}>
             <div className="flex flex-col gap-1 px-2 mb-4">
-              <span className="text-[11px] font-bold text-slate-400 tracking-tight">Roco AI v.1.1.2</span>
+              <span className="text-[11px] font-bold text-slate-400 tracking-tight">Roco AI v.1.1.3</span>
               <span className="text-[10px] text-slate-500">Created by <span className="font-semibold text-blue-500">Arno</span></span>
             </div>
             <button onClick={() => setModalConfig({ isOpen: true, type: "clearAll" })} className="w-full p-2 text-[11px] font-medium text-red-500/70 hover:text-red-500 hover:bg-red-500/5 rounded-lg transition-colors text-center">
@@ -312,11 +322,11 @@ export default function Home() {
                 <div className="flex flex-col gap-1.5 max-w-[88%] md:max-w-[85%]">
                   <div className={`px-4 py-2.5 rounded-2xl text-[14.5px] leading-relaxed ${chat.role === "user" ? (isDarkMode ? "bg-[#2f2f2f]" : "bg-white border border-slate-100 shadow-sm") : ""}`}>
                     <div className={`prose prose-sm md:prose-base max-w-full overflow-hidden break-words ${isDarkMode ? "prose-invert" : "prose-slate"}`}>
-                      {/* --- MODIFIKASI REACT MARKDOWN --- */}
+                      {/* --- MODIFIKASI: Passing state isDarkMode ke CodeBlock --- */}
                       <ReactMarkdown 
                         remarkPlugins={[remarkGfm]}
                         components={{
-                          code: CodeBlock
+                          code: (props) => <CodeBlock {...props} dark={isDarkMode} />
                         }}
                       >
                         {chat.content}
@@ -383,7 +393,7 @@ export default function Home() {
                 <button onClick={() => { setEditingIndex(null); setInput(""); if(textareaRef.current) textareaRef.current.style.height="auto"; }} className="text-[10px] text-red-500 hover:underline font-bold">Batal Edit</button>
               </div>
             )}
-            <p className="text-[10px] text-center text-slate-500 font-medium tracking-tight mt-1 opacity-70">Roco AI v.1.1.2 — Roco can make mistakes. Always check info.</p>
+            <p className="text-[10px] text-center text-slate-500 font-medium tracking-tight mt-1 opacity-70">Roco AI v.1.1.3 — Roco can make mistakes. Always double check.</p>
           </div>
         </div>
       </div>
