@@ -548,7 +548,7 @@ export default function Home() {
                         <label className="text-xs font-bold uppercase text-slate-500 tracking-wider mb-1 block">Nama Panggilan</label>
                         <input 
                             className={`w-full p-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-blue-500 ${isDarkMode ? "bg-white/5 border-white/10 text-white" : "bg-slate-50 border-slate-200 text-slate-900"}`} 
-                            placeholder="Contoh: Arno"
+                            placeholder="Contoh: John Doe"
                             value={tempProfileName}
                             onChange={(e) => setTempProfileName(e.target.value)}
                         />
