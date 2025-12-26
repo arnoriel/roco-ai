@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import Link from "next/link";
 
 // Interface untuk Profile
 interface UserProfile {
@@ -61,6 +62,35 @@ const CodeBlock = ({ node, inline, className, children, dark, ...props }: any) =
   );
 };
 
+const ModeDropdown = ({ selectedMode, setSelectedMode, isDarkMode }: { selectedMode: string, setSelectedMode: (mode: string) => void, isDarkMode: boolean }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (ref.current && !ref.current.contains(event.target as Node)) setIsOpen(false);
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  return (
+    <div className="relative" ref={ref}>
+      <button onClick={() => setIsOpen(!isOpen)} className={`p-1 rounded-lg border text-xs ${isDarkMode ? "bg-[#2f2f2f] border-white/10 text-white" : "bg-white border-slate-200 text-slate-900"}`}>
+        {selectedMode}
+      </button>
+      {isOpen && (
+        <div className={`absolute bottom-full mb-1 w-32 rounded-lg shadow-lg border py-1 animate-dropdownOpen ${isDarkMode ? "bg-[#252525] border-white/10 text-white" : "bg-white border-slate-200 text-slate-700"}`}>
+          <button onClick={() => { setSelectedMode("Vanilla"); setIsOpen(false); }} className="w-full text-left px-4 py-2 text-xs hover:bg-blue-500 hover:text-white transition-colors">Vanilla</button>
+          <button onClick={() => { setSelectedMode("Seronic"); setIsOpen(false); }} className="w-full text-left px-4 py-2 text-xs hover:bg-blue-500 hover:text-white transition-colors">Seronic</button>
+          <button onClick={() => { setSelectedMode("Homule"); setIsOpen(false); }} className="w-full text-left px-4 py-2 text-xs hover:bg-blue-500 hover:text-white transition-colors">Homule</button>
+          <button onClick={() => { setSelectedMode("Corsero"); setIsOpen(false); }} className="w-full text-left px-4 py-2 text-xs hover:bg-blue-500 hover:text-white transition-colors">Corsero</button>
+        </div>
+      )}
+    </div>
+  );
+};
+
 export default function Home() {
   const [input, setInput] = useState("");
   const [sessions, setSessions] = useState<ChatSession[]>([]);
@@ -79,6 +109,9 @@ export default function Home() {
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [tempProfileName, setTempProfileName] = useState("");
   const [tempProfileAvatar, setTempProfileAvatar] = useState("");
+
+  // State baru untuk mode personality
+  const [selectedMode, setSelectedMode] = useState("Vanilla");
 
   const [modalConfig, setModalConfig] = useState<{
     isOpen: boolean;
@@ -109,6 +142,7 @@ export default function Home() {
     const savedSessions = localStorage.getItem("roco_sessions");
     const savedActiveId = localStorage.getItem("roco_active_id");
     const savedTheme = localStorage.getItem("theme");
+    const savedMode = localStorage.getItem("roco_mode");
     
     // Load Profile
     const savedProfile = localStorage.getItem("roco_profile");
@@ -120,6 +154,10 @@ export default function Home() {
       setIsDarkMode(false);
     } else {
       setIsDarkMode(true);
+    }
+
+    if (savedMode) {
+      setSelectedMode(savedMode);
     }
     
     if (window.innerWidth < 1024) setIsSidebarOpen(false);
@@ -156,6 +194,10 @@ export default function Home() {
   useEffect(() => {
     localStorage.setItem("theme", isDarkMode ? "dark" : "light");
   }, [isDarkMode]);
+
+  useEffect(() => {
+    localStorage.setItem("roco_mode", selectedMode);
+  }, [selectedMode]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -253,7 +295,7 @@ export default function Home() {
       setEditingIndex(null);
     } else {
       updatedHistory.push({ role: "user", content: messageToSend });
-      setSessions(prev => prev.map(s => s.id === sessionId ? { ...s, messages: updatedHistory, title: s.messages.length === 0 ? messageToSend.substring(0, 30) : s.title } : s));
+      setSessions(prev => prev.map(s => s.id === sessionId ? { ...s, messages: [...updatedHistory], title: s.messages.length === 0 ? messageToSend.substring(0, 30) : s.title } : s));
     }
 
     setInput("");
@@ -267,7 +309,8 @@ export default function Home() {
         body: JSON.stringify({ 
           prompt: messageToSend, 
           history: updatedHistory.slice(0, -1),
-          userName: userProfile?.name 
+          userName: userProfile?.name,
+          mode: selectedMode // Kirim mode ke backend
         }),
       });
       const data = await response.json();
@@ -309,17 +352,20 @@ export default function Home() {
     closeModal();
   };
 
-  // Component Input Box
+  // Component Input Box (diperbarui dengan custom dropdown di dalam input, posisi kiri bawah)
   const InputBox = () => (
     <div className="w-full relative flex items-end">
       <textarea ref={textareaRef} rows={1} 
-        className={`w-full p-4 pr-14 rounded-2xl shadow-sm focus:outline-none transition-all text-[15px] resize-none overflow-y-auto max-h-40 
+        className={`w-full p-4 pr-14 pb-10 rounded-2xl shadow-sm focus:outline-none transition-all text-[15px] resize-none overflow-y-auto max-h-40 
         ${isDarkMode ? "bg-[#2f2f2f] border-white/10 text-white" : "bg-white border-slate-300 text-slate-900 shadow-sm"}`} 
         placeholder={editingIndex !== null ? "Edit pesanmu..." : (userProfile ? `Tanya Roco, ${userProfile.name}...` : "Tanya Roco AI...")} 
         value={input}
         onChange={(e) => { setInput(e.target.value); e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; }}
         onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(input, editingIndex !== null, editingIndex ?? undefined); }}}
       />
+      <div className="absolute bottom-3 left-3">
+        <ModeDropdown selectedMode={selectedMode} setSelectedMode={setSelectedMode} isDarkMode={isDarkMode} />
+      </div>
       <button onClick={() => !isLoading && handleSend(input, editingIndex !== null, editingIndex ?? undefined)} 
         className={`absolute right-3 bottom-3 p-2 rounded-xl transition-all ${isDarkMode ? "bg-white text-black" : "bg-slate-900 text-white"}`}>
         {isLoading ? <div className="w-5 h-5 flex items-center justify-center"><div className={`w-3 h-3 rounded-sm ${isDarkMode ? 'bg-black' : 'bg-white'} animate-pulse`} /></div> : <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 10.5 12 3m0 0 7.5 7.5M12 3v18" /></svg>}
@@ -341,7 +387,7 @@ export default function Home() {
           <button onClick={() => { createNewChat(); if(window.innerWidth < 1024) setIsSidebarOpen(false); }} 
             className={`w-full mb-6 p-3 rounded-xl border flex items-center justify-center gap-2 font-medium transition-all
             ${isDarkMode ? "border-white/10 hover:bg-white/5 text-white" : "border-slate-200 hover:bg-white shadow-sm text-slate-700"}`}>
-            <span className="text-xl">+</span> New Chat
+            <span className="text-xl">+</span> Chat Baru
           </button>
 
           <div className="flex-1 overflow-y-auto space-y-1 custom-scrollbar pr-2">
@@ -369,10 +415,13 @@ export default function Home() {
           </div>
           <div className={`mt-4 pt-4 border-t ${isDarkMode ? "border-white/10" : "border-slate-200"}`}>
             <div className="flex flex-col gap-1 px-2 mb-4">
-              <span className="text-[11px] font-bold text-slate-400 tracking-tight">Roco AI v.1.1.4</span>
+              <span className="text-[11px] font-bold text-slate-400 tracking-tight">Roco AI v.1.1.5</span>
               <span className="text-[10px] text-slate-500">Created by <span className="font-semibold text-blue-500">Arno</span></span>
             </div>
-            <button onClick={() => setModalConfig({ isOpen: true, type: "clearAll" })} className="w-full p-2 text-[11px] font-medium text-red-500/70 hover:text-red-500 hover:bg-red-500/5 rounded-lg transition-colors text-center">Clear All History</button>
+            <Link href="/about">
+              <button className="w-full p-2 text-[11px] font-medium text-blue-500 hover:text-blue-400 hover:bg-blue-500/5 rounded-lg transition-colors text-center mb-2">Tentang</button>
+            </Link>
+            <button onClick={() => setModalConfig({ isOpen: true, type: "clearAll" })} className="w-full p-2 text-[11px] font-medium text-red-500/70 hover:text-red-500 hover:bg-red-500/5 rounded-lg transition-colors text-center">Hapus semua History</button>
           </div>
         </div>
       </aside>
@@ -491,7 +540,7 @@ export default function Home() {
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div onClick={closeModal} className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
           <div className={`relative w-full max-w-sm rounded-2xl shadow-2xl border p-6 animate-in fade-in zoom-in duration-200 ${isDarkMode ? "bg-[#252525] border-white/10 text-white" : "bg-white border-slate-200 text-slate-900"}`}>
-            <h3 className="text-lg font-bold mb-2">{modalConfig.type === "rename" ? "Rename Chat" : modalConfig.type === "delete" ? "Delete Chat" : "Clear All History"}</h3>
+            <h3 className="text-lg font-bold mb-2">{modalConfig.type === "rename" ? "Rename Chat" : modalConfig.type === "delete" ? "Delete Chat" : "Hapus semua History"}</h3>
             <p className="text-sm text-slate-500 mb-6">{modalConfig.type === "rename" ? "Ganti nama sesi riset ini." : modalConfig.type === "delete" ? "Yakin ingin menghapus sesi ini?" : "Hapus semua history?"}</p>
             {modalConfig.type === "rename" && <input autoFocus className={`w-full p-3 rounded-xl border mb-6 focus:outline-none focus:ring-2 focus:ring-blue-500 ${isDarkMode ? "bg-white/5 border-white/10 text-white" : "bg-slate-50 border-slate-200 text-slate-900"}`} value={modalConfig.value} onChange={(e) => setModalConfig({ ...modalConfig, value: e.target.value })} onKeyDown={(e) => e.key === "Enter" && handleRenameAction()} />}
             <div className="flex gap-3 justify-end">
@@ -507,7 +556,7 @@ export default function Home() {
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
             <div onClick={() => setIsProfileModalOpen(false)} className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
             <div className={`relative w-full max-w-sm rounded-2xl shadow-2xl border p-6 animate-in fade-in zoom-in duration-200 ${isDarkMode ? "bg-[#252525] border-white/10 text-white" : "bg-white border-slate-200 text-slate-900"}`}>
-                <h3 className="text-lg font-bold mb-4">{userProfile ? "Edit Profile" : "Create New Profile"}</h3>
+                <h3 className="text-lg font-bold mb-4">{userProfile ? "Edit Profil" : "Buat Profil Baru"}</h3>
                 
                 <div className="space-y-5">
                     {/* Bagian Upload Foto */}
@@ -576,9 +625,11 @@ export default function Home() {
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #333; border-radius: 10px; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         @keyframes zoomIn { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        @keyframes dropdownOpen { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
         .animate-in { animation: fadeIn 0.3s ease-out; }
         .zoom-in { animation: zoomIn 0.2s ease-out; }
         .slide-in-from-bottom-4 { animation: slideUp 0.5s ease-out; }
+        .animate-dropdownOpen { animation: dropdownOpen 0.2s ease-out; }
         @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
       `}</style>
     </div>

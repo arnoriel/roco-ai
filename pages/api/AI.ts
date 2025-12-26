@@ -2,14 +2,14 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import Groq from "groq-sdk";
 
-// AMAN: Mengambil API Key dari Environment Variables
+// Inisialisasi Groq SDK
 const groq = new Groq({
   apiKey: process.env.GROQ_API_KEY,
 });
 
 const TAVILY_API_KEY = process.env.TAVILY_API_KEY;
 
-// Fungsi untuk melakukan riset real-time ke internet
+// Fungsi untuk melakukan riset real-time ke internet via Tavily
 async function researchWeb(query: string) {
   if (!TAVILY_API_KEY) {
     return "Fitur riset belum dikonfigurasi di environment variables.";
@@ -31,7 +31,6 @@ async function researchWeb(query: string) {
     const data = await response.json();
 
     if (data.results && data.results.length > 0) {
-      // Menggabungkan ringkasan berita/data dari internet
       const searchContext = data.results
         .map((res: any) => `- ${res.title}: ${res.content}`)
         .join("\n\n");
@@ -51,8 +50,7 @@ export default async function handler(
 ) {
   if (req.method !== "POST") return res.status(405).send("Method not allowed");
 
-  // FITUR BARU: Ambil userName dari body
-  const { prompt, history = [], userName } = req.body;
+  const { prompt, history = [], userName, mode = "Vanilla" } = req.body;
 
   try {
     // 1. Dapatkan Waktu Real-time WIB
@@ -63,7 +61,7 @@ export default async function handler(
       timeStyle: "medium",
     });
 
-    // 2. Logika Deteksi Riset
+    // 2. Logika Deteksi Riset Otomatis
     const timeKeywords = [
       "2024",
       "2025",
@@ -74,47 +72,70 @@ export default async function handler(
       "skor",
       "harga",
     ];
-    const needsResearch = timeKeywords.some((keyword) =>
-      prompt.toLowerCase().includes(keyword)
-    );
+    let needsResearch = mode === "Corsero"; // Mode Corsero selalu riset
+    if (!needsResearch) {
+      needsResearch = timeKeywords.some((keyword) =>
+        prompt.toLowerCase().includes(keyword)
+      );
+    }
 
     let researchData = "";
     if (needsResearch) {
       researchData = await researchWeb(prompt);
     }
 
-    // 3. Siapkan System Prompt
+    // 3. Definisi Deskripsi Karakter berdasarkan Mode
+    let characterDesc = "";
+    switch (mode) {
+      case "Vanilla":
+        characterDesc = `- Kamu asisten yang ramah, cerdas, humoris, dan menggunakan bahasa Indonesia santai (gaul/ngobrol).
+- Kamu ahli coding, tapi berikan kode hanya jika ditanya hal teknis.`;
+        break;
+      case "Seronic":
+        characterDesc = `- Kamu asisten jenius, to-the-point, menggunakan bahasa Indonesia formal tapi ringkas.
+- Fokus pada efisiensi dan keakuratan jawaban tanpa basa-basi.`;
+        break;
+      case "Homule":
+        characterDesc = `- Kamu asisten yang empati, mengerti perasaan, dan memberikan solusi psikologis.
+- Gunakan bahasa Indonesia santai yang menenangkan dan mendukung.`;
+        break;
+      case "Corsero":
+        characterDesc = `- Kamu asisten peneliti yang selalu menggunakan data riset internet.
+- Gunakan bahasa Indonesia santai tapi informatif dan sertakan sumber jika ada.`;
+        break;
+      default:
+        characterDesc = `- Kamu asisten standar yang ramah dan membantu.`;
+    }
+
+    // 4. Konstruksi System Prompt agar Roco AI Mengenali Dirinya
     const messages = [
       {
         role: "system",
         content: `Nama kamu adalah Roco AI (Ro: Robot, Co: Code). Kamu diciptakan oleh Arno.
         
-        INFORMASI PENGGUNA:
-        - Kamu sedang berbicara dengan pengguna bernama: ${userName || "Teman"}.
-        - Sapa dia dengan namanya sesekali agar terasa personal, tapi jangan berlebihan.
-        
-        KARAKTER:
-        - Kamu asisten yang ramah, cerdas, humoris, dan menggunakan bahasa Indonesia santai (gaul/ngobrol).
-        - Kamu ahli pemrograman (coding), tapi HANYA berikan kode jika user bertanya tentang teknis, error, atau meminta contoh kodingan. 
-        - Jika pertanyaan umum, jawablah dengan teks penjelasan yang santai tanpa kode.
-        
-        KONTEKS WAKTU:
-        - Waktu sekarang (WIB): ${timeWIB}.
-        
-        PENGETAHUAN TERBARU (HASIL RISET INTERNET):
-        ${
-          researchData
-            ? researchData
-            : "Gunakan basis data internalmu (cutoff 2023)."
-        }
-        
-        INSTRUKSI KHUSUS:
-        - Gunakan data HASIL RISET untuk menjawab pertanyaan tentang peristiwa tahun 2024-2025.
-        - Jika memberikan kode, gunakan format Markdown yang rapi.
-        - Selalu ingat konteks percakapan sebelumnya.`,
+INFORMASI PENGGUNA:
+- Kamu sedang berbicara dengan: ${userName || "Teman"}.
+
+DAFTAR MODE PERSONALITY YANG KAMU MILIKI:
+1. Vanilla: Mode default yang santai dan humoris.
+2. Seronic: Mode serius, jenius, dan sangat ringkas.
+3. Homule: Mode pendengar setia yang penuh empati.
+4. Corsero: Mode spesialis riset data real-time.
+
+KONTEKS SAAT INI:
+- Mode yang sedang aktif: ${mode}.
+- Karakter kamu sekarang: ${characterDesc}
+- Waktu (WIB): ${timeWIB}.
+
+SUMBER DATA (RISET INTERNET):
+${researchData ? researchData : "Gunakan basis data internalmu (cutoff 2023)."}
+
+INSTRUKSI:
+- Jika user bertanya tentang mode-mode di atas, jelaskan sesuai daftar di atas.
+- Selalu gunakan bahasa Indonesia sesuai karakter mode yang aktif.
+- Jika memberikan kode kodingan, gunakan format Markdown yang rapi.`,
       },
-      // Ambil 3-5 percakapan terakhir agar memori tetap ada tapi token irit
-      ...history.slice(-3).map((chat: any) => ({
+      ...history.slice(-4).map((chat: any) => ({
         role: chat.role === "user" ? "user" : "assistant",
         content: chat.content,
       })),
@@ -124,7 +145,7 @@ export default async function handler(
       },
     ];
 
-    // 4. Kirim ke model yang lebih ringan (Llama 3.1 8B)
+    // 5. Eksekusi ke Groq (Llama 3.1 8B)
     const chatCompletion = await groq.chat.completions.create({
       messages: messages as any,
       model: "llama-3.1-8b-instant",
@@ -136,11 +157,11 @@ export default async function handler(
 
     const responseText = chatCompletion.choices[0]?.message?.content || "";
 
-    // 5. Kirim Respon ke Frontend
     res.status(200).json({
       text: responseText,
       topic: "roco-ai-logic",
       currentTime: timeWIB,
+      activeMode: mode,
     });
   } catch (error: any) {
     console.error("Groq Error:", error);
