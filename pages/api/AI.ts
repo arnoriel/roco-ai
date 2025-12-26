@@ -51,7 +51,8 @@ export default async function handler(
 ) {
   if (req.method !== "POST") return res.status(405).send("Method not allowed");
 
-  const { prompt, history = [] } = req.body;
+  // FITUR BARU: Ambil userName dari body
+  const { prompt, history = [], userName } = req.body;
 
   try {
     // 1. Dapatkan Waktu Real-time WIB
@@ -62,7 +63,7 @@ export default async function handler(
       timeStyle: "medium",
     });
 
-    // 2. Logika Deteksi Riset (otomatis riset jika tanya info 2024/2025 atau berita)
+    // 2. Logika Deteksi Riset
     const timeKeywords = [
       "2024",
       "2025",
@@ -87,6 +88,10 @@ export default async function handler(
       {
         role: "system",
         content: `Nama kamu adalah Roco AI (Ro: Robot, Co: Code). Kamu diciptakan oleh Arno.
+        
+        INFORMASI PENGGUNA:
+        - Kamu sedang berbicara dengan pengguna bernama: ${userName || "Teman"}.
+        - Sapa dia dengan namanya sesekali agar terasa personal, tapi jangan berlebihan.
         
         KARAKTER:
         - Kamu asisten yang ramah, cerdas, humoris, dan menggunakan bahasa Indonesia santai (gaul/ngobrol).
@@ -122,9 +127,9 @@ export default async function handler(
     // 4. Kirim ke model yang lebih ringan (Llama 3.1 8B)
     const chatCompletion = await groq.chat.completions.create({
       messages: messages as any,
-      model: "llama-3.1-8b-instant", // Model paling hemat token di Groq
+      model: "llama-3.1-8b-instant",
       temperature: 0.7,
-      max_tokens: 1024, // Kita batasi panjang respon agar irit
+      max_tokens: 1024,
       top_p: 1,
       stream: false,
     });

@@ -2,6 +2,12 @@ import { useState, useEffect, useRef } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
+// Interface untuk Profile
+interface UserProfile {
+  name: string;
+  avatar: string; // Sekarang akan berisi string Base64 gambar
+}
+
 interface ChatSession {
   id: string;
   title: string;
@@ -61,8 +67,6 @@ export default function Home() {
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true); 
   const [isLoading, setIsLoading] = useState(false);
-  
-  // PERUBAHAN 1: Default state diubah menjadi true (Dark Mode)
   const [isDarkMode, setIsDarkMode] = useState(true);
   
   const [randomOpening, setRandomOpening] = useState("");
@@ -70,6 +74,12 @@ export default function Home() {
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   
+  // State untuk Profile
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [tempProfileName, setTempProfileName] = useState("");
+  const [tempProfileAvatar, setTempProfileAvatar] = useState("");
+
   const [modalConfig, setModalConfig] = useState<{
     isOpen: boolean;
     type: "rename" | "delete" | "clearAll";
@@ -80,6 +90,9 @@ export default function Home() {
   const chatEndRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  
+  // Ref untuk File Input
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const createNewChat = (isInitial = false) => {
     const newId = Date.now().toString();
@@ -96,9 +109,13 @@ export default function Home() {
     const savedSessions = localStorage.getItem("roco_sessions");
     const savedActiveId = localStorage.getItem("roco_active_id");
     const savedTheme = localStorage.getItem("theme");
+    
+    // Load Profile
+    const savedProfile = localStorage.getItem("roco_profile");
+    if (savedProfile) {
+      setUserProfile(JSON.parse(savedProfile));
+    }
 
-    // PERUBAHAN 2: Jika user secara eksplisit menyimpan "light", baru ganti ke light. 
-    // Jika tidak ada data (user baru), tetap default Dark.
     if (savedTheme === "light") {
       setIsDarkMode(false);
     } else {
@@ -149,8 +166,68 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    const currentSession = sessions.find(s => s.id === activeSessionId);
+    if (currentSession && currentSession.messages.length > 0) {
+      chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
   }, [sessions, activeSessionId, isLoading]);
+
+  // UPDATE: Logic Upload File
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Validasi Ukuran: Max 1MB untuk localStorage safety
+      if (file.size > 1024 * 1024) {
+        alert("Ukuran file terlalu besar! Maksimal 1MB.");
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64String = reader.result as string;
+        setTempProfileAvatar(base64String);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleRemovePhoto = () => {
+    setTempProfileAvatar("");
+    if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+    }
+  };
+
+  // Handle Save Profile
+  const handleSaveProfile = () => {
+    const newProfile = {
+      name: tempProfileName.trim(),
+      avatar: tempProfileAvatar.trim()
+    };
+    
+    if (!newProfile.name) return alert("Nama harus diisi!");
+
+    try {
+        localStorage.setItem("roco_profile", JSON.stringify(newProfile));
+        setUserProfile(newProfile);
+        setIsProfileModalOpen(false);
+    } catch (error) {
+        console.error(error);
+        alert("Gagal menyimpan profile. Kemungkinan file gambar terlalu besar.");
+    }
+  };
+
+  // Open Profile Modal logic
+  const openProfileModal = () => {
+    if (userProfile) {
+      setTempProfileName(userProfile.name);
+      setTempProfileAvatar(userProfile.avatar);
+    } else {
+      setTempProfileName("");
+      setTempProfileAvatar("");
+    }
+    setIsProfileModalOpen(true);
+  }
 
   const currentSession = sessions.find(s => s.id === activeSessionId);
   const chatLog = currentSession?.messages || [];
@@ -187,7 +264,11 @@ export default function Home() {
       const response = await fetch("/api/AI", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: messageToSend, history: updatedHistory.slice(0, -1) }),
+        body: JSON.stringify({ 
+          prompt: messageToSend, 
+          history: updatedHistory.slice(0, -1),
+          userName: userProfile?.name 
+        }),
       });
       const data = await response.json();
       const aiMsg = { role: "ai", content: data.text };
@@ -227,6 +308,24 @@ export default function Home() {
     createNewChat(true);
     closeModal();
   };
+
+  // Component Input Box
+  const InputBox = () => (
+    <div className="w-full relative flex items-end">
+      <textarea ref={textareaRef} rows={1} 
+        className={`w-full p-4 pr-14 rounded-2xl shadow-sm focus:outline-none transition-all text-[15px] resize-none overflow-y-auto max-h-40 
+        ${isDarkMode ? "bg-[#2f2f2f] border-white/10 text-white" : "bg-white border-slate-300 text-slate-900 shadow-sm"}`} 
+        placeholder={editingIndex !== null ? "Edit pesanmu..." : (userProfile ? `Tanya Roco, ${userProfile.name}...` : "Tanya Roco AI...")} 
+        value={input}
+        onChange={(e) => { setInput(e.target.value); e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; }}
+        onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(input, editingIndex !== null, editingIndex ?? undefined); }}}
+      />
+      <button onClick={() => !isLoading && handleSend(input, editingIndex !== null, editingIndex ?? undefined)} 
+        className={`absolute right-3 bottom-3 p-2 rounded-xl transition-all ${isDarkMode ? "bg-white text-black" : "bg-slate-900 text-white"}`}>
+        {isLoading ? <div className="w-5 h-5 flex items-center justify-center"><div className={`w-3 h-3 rounded-sm ${isDarkMode ? 'bg-black' : 'bg-white'} animate-pulse`} /></div> : <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 10.5 12 3m0 0 7.5 7.5M12 3v18" /></svg>}
+      </button>
+    </div>
+  );
 
   return (
     <div className={`h-screen flex overflow-hidden font-sans transition-colors duration-300 ${isDarkMode ? "bg-[#171717] text-white" : "bg-white text-slate-900"}`}>
@@ -270,7 +369,7 @@ export default function Home() {
           </div>
           <div className={`mt-4 pt-4 border-t ${isDarkMode ? "border-white/10" : "border-slate-200"}`}>
             <div className="flex flex-col gap-1 px-2 mb-4">
-              <span className="text-[11px] font-bold text-slate-400 tracking-tight">Roco AI v.1.1.3</span>
+              <span className="text-[11px] font-bold text-slate-400 tracking-tight">Roco AI v.1.1.4</span>
               <span className="text-[10px] text-slate-500">Created by <span className="font-semibold text-blue-500">Arno</span></span>
             </div>
             <button onClick={() => setModalConfig({ isOpen: true, type: "clearAll" })} className="w-full p-2 text-[11px] font-medium text-red-500/70 hover:text-red-500 hover:bg-red-500/5 rounded-lg transition-colors text-center">Clear All History</button>
@@ -280,73 +379,118 @@ export default function Home() {
 
       {/* MAIN AREA */}
       <div className="flex-1 flex flex-col min-w-0 h-full relative overflow-hidden">
+        {/* HEADER */}
         <nav className={`sticky top-0 left-0 right-0 border-b py-3 px-6 flex justify-between items-center z-30 backdrop-blur-md ${isDarkMode ? "border-white/10 bg-[#171717]/90" : "border-slate-200 bg-white/90"}`}>
           <div className="flex items-center gap-3">
             <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="group flex items-center gap-2 outline-none">
               <span className="font-bold text-lg tracking-tight group-hover:text-blue-500 transition-colors">Roco AI</span>
             </button>
           </div>
-          <button onClick={() => setIsDarkMode(!isDarkMode)} className={`p-2 rounded-lg transition-colors ${isDarkMode ? "text-yellow-400 hover:bg-white/5" : "text-slate-500 hover:bg-slate-100"}`}>{isDarkMode ? "☀️" : "🌙"}</button>
+          
+          <div className="flex items-center gap-3">
+            <button onClick={() => setIsDarkMode(!isDarkMode)} className={`p-2 rounded-lg transition-colors ${isDarkMode ? "text-yellow-400 hover:bg-white/5" : "text-slate-500 hover:bg-slate-100"}`}>{isDarkMode ? "☀️" : "🌙"}</button>
+            
+            {/* Profile Button */}
+            <button onClick={openProfileModal} className="relative w-8 h-8 rounded-full overflow-hidden border border-gray-300 dark:border-white/20 hover:ring-2 hover:ring-blue-500 transition-all">
+                {userProfile?.avatar ? (
+                   // eslint-disable-next-line @next/next/no-img-element
+                   <img src={userProfile.avatar} alt="Profile" className="w-full h-full object-cover" />
+                ) : (
+                   <div className={`w-full h-full flex items-center justify-center ${isDarkMode ? "bg-white/10 text-white" : "bg-slate-200 text-slate-500"}`}>
+                       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
+                         <path fillRule="evenodd" d="M7.5 6a4.5 4.5 0 1 1 9 0 4.5 4.5 0 0 1-9 0ZM3.751 20.105a8.25 8.25 0 0 1 16.498 0 .75.75 0 0 1-.437.695A18.683 18.683 0 0 1 12 22.5c-2.786 0-5.433-.608-7.812-1.7a.75.75 0 0 1-.437-.695Z" clipRule="evenodd" />
+                       </svg>
+                   </div>
+                )}
+            </button>
+          </div>
         </nav>
 
-        <main className="flex-1 overflow-y-auto custom-scrollbar">
-          <div className="max-w-3xl mx-auto p-4 space-y-8 pb-32">
-            {chatLog.length === 0 && (
-              <div className="h-[70vh] flex flex-col items-center justify-center text-slate-400 space-y-3">
-                <div className={`w-16 h-16 rounded-3xl flex items-center justify-center text-3xl border ${isDarkMode ? "bg-white/5 border-white/10" : "bg-slate-50 border-slate-200"}`}>🔍</div>
-                <p className="text-sm font-medium animate-in fade-in slide-in-from-bottom-2 duration-700 text-center px-6">{randomOpening}</p>
+        <main className="flex-1 overflow-y-auto custom-scrollbar flex flex-col">
+          {chatLog.length === 0 ? (
+            // Tampilan Tengah (Kondisi Chat Kosong)
+            <div className="flex-1 flex flex-col items-center justify-center px-4">
+              <div className="w-full max-w-2xl space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                  <div className="text-center space-y-4">
+                      <div className={`w-20 h-20 mx-auto rounded-3xl flex items-center justify-center text-4xl border shadow-lg ${isDarkMode ? "bg-white/5 border-white/10" : "bg-white border-slate-200"}`}>🔍</div>
+                      
+                      {/* GREETING PERSONAL */}
+                      <h2 className="text-2xl font-bold tracking-tight">
+                        {userProfile ? `Hi, ${userProfile.name}!` : "Selamat Datang!"}
+                      </h2>
+                      <p className={`text-lg font-medium ${isDarkMode ? "text-slate-400" : "text-slate-600"}`}>
+                        {randomOpening}
+                      </p>
+                  </div>
+                  
+                  {/* INPUT BOX DI TENGAH */}
+                  <div className="w-full">
+                     {InputBox()}
+                     <div className="flex justify-center mt-4 gap-2">
+                        <button onClick={() => setInput("Berita teknologi hari ini")} className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${isDarkMode ? "border-white/10 hover:bg-white/10 text-slate-400" : "border-slate-200 hover:bg-slate-50 text-slate-500"}`}>Berita Teknologi</button>
+                        <button onClick={() => setInput("Berita pasar hari ini")} className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${isDarkMode ? "border-white/10 hover:bg-white/10 text-slate-400" : "border-slate-200 hover:bg-slate-50 text-slate-500"}`}>Berita Pasar</button>
+                        <button onClick={() => setInput("Berita politik hari ini")} className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${isDarkMode ? "border-white/10 hover:bg-white/10 text-slate-400" : "border-slate-200 hover:bg-slate-50 text-slate-500"}`}>Berita Politik</button>
+                        <button onClick={() => setInput("Aku ingin belajar hari ini")} className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${isDarkMode ? "border-white/10 hover:bg-white/10 text-slate-400" : "border-slate-200 hover:bg-slate-50 text-slate-500"}`}>Belajar</button>
+                     </div>
+                  </div>
               </div>
-            )}
-            {chatLog.map((chat, i) => (
-              <div key={i} className={`flex gap-3 md:gap-4 group ${chat.role === "user" ? "flex-row-reverse" : "flex-row"}`}>
-                <div className={`w-8 h-8 rounded-lg flex-shrink-0 flex items-center justify-center border text-[10px] font-bold shadow-sm ${chat.role === "user" ? (isDarkMode ? "bg-white text-black border-white" : "bg-slate-900 text-white border-slate-900") : (isDarkMode ? "border-white/10" : "border-slate-200")}`}>{chat.role === "user" ? "U" : "R"}</div>
-                <div className="flex flex-col gap-1.5 max-w-[88%] md:max-w-[85%]">
-                  <div className={`px-4 py-2.5 rounded-2xl text-[14.5px] leading-relaxed ${chat.role === "user" ? (isDarkMode ? "bg-[#2f2f2f]" : "bg-white border border-slate-100 shadow-sm") : ""}`}>
-                    <div className={`prose prose-sm md:prose-base max-w-full overflow-hidden break-words ${isDarkMode ? "prose-invert" : "prose-slate"}`}>
-                      <ReactMarkdown remarkPlugins={[remarkGfm]} components={{ code: (props) => <CodeBlock {...props} dark={isDarkMode} /> }}>{chat.content}</ReactMarkdown>
+            </div>
+          ) : (
+            // Tampilan Chat Biasa
+            <div className="max-w-3xl mx-auto w-full p-4 space-y-8 pb-32">
+              {chatLog.map((chat, i) => (
+                <div key={i} className={`flex gap-3 md:gap-4 group ${chat.role === "user" ? "flex-row-reverse" : "flex-row"}`}>
+                  <div className={`w-8 h-8 rounded-lg flex-shrink-0 flex items-center justify-center border text-[10px] font-bold shadow-sm overflow-hidden 
+                    ${chat.role === "user" 
+                        ? (isDarkMode ? "bg-white text-black border-white" : "bg-slate-900 text-white border-slate-900") 
+                        : (isDarkMode ? "border-white/10" : "border-slate-200")}`}>
+                      {chat.role === "user" ? (
+                         userProfile?.avatar ? <img src={userProfile.avatar} alt="Me" className="w-full h-full object-cover" /> : "U"
+                      ) : "R"}
+                  </div>
+                  <div className="flex flex-col gap-1.5 max-w-[88%] md:max-w-[85%]">
+                    <div className={`px-4 py-2.5 rounded-2xl text-[14.5px] leading-relaxed ${chat.role === "user" ? (isDarkMode ? "bg-[#2f2f2f]" : "bg-white border border-slate-100 shadow-sm") : ""}`}>
+                      <div className={`prose prose-sm md:prose-base max-w-full overflow-hidden break-words ${isDarkMode ? "prose-invert" : "prose-slate"}`}>
+                        <ReactMarkdown remarkPlugins={[remarkGfm]} components={{ code: (props) => <CodeBlock {...props} dark={isDarkMode} /> }}>{chat.content}</ReactMarkdown>
+                      </div>
+                    </div>
+                    <div className={`flex items-center gap-4 px-1 ${chat.role === "user" ? "flex-row-reverse" : "flex-row"}`}>
+                      <button onClick={() => { navigator.clipboard.writeText(chat.content); setCopiedIndex(i); setTimeout(() => setCopiedIndex(null), 1000); }} className="flex items-center gap-1.5 text-slate-400 hover:text-blue-500 transition-colors p-1">
+                        {copiedIndex === i ? <span className="text-[10px] font-bold text-blue-500">Copied!</span> : <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 0 1-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 0 1 1.5.124m7.5 10.376h3.375c.621 0 1.125-.504 1.125-1.125V11.25c0-4.46-3.243-8.161-7.5-8.876a9.06 9.06 0 0 0-1.5-.124H9.375c-.621 0-1.125.504-1.125 1.125v3.5m7.5 10.375H9.375a1.125 1.125 0 0 1-1.125-1.125v-9.25m12 6.625v-1.875a3.375 3.375 0 0 0-3.375-3.375h-1.5a1.125 1.125 0 0 1-1.125-1.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H9.75" /></svg>}
+                      </button>
+                      {chat.role === "user" && <button onClick={() => { setEditingIndex(i); setInput(chat.content); textareaRef.current?.focus(); }} className="text-slate-400 hover:text-blue-500 transition-colors p-1"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" /></svg></button>}
                     </div>
                   </div>
-                  <div className={`flex items-center gap-4 px-1 ${chat.role === "user" ? "flex-row-reverse" : "flex-row"}`}>
-                    <button onClick={() => { navigator.clipboard.writeText(chat.content); setCopiedIndex(i); setTimeout(() => setCopiedIndex(null), 1000); }} className="flex items-center gap-1.5 text-slate-400 hover:text-blue-500 transition-colors p-1">
-                      {copiedIndex === i ? <span className="text-[10px] font-bold text-blue-500">Copied!</span> : <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 0 1-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 0 1 1.5.124m7.5 10.376h3.375c.621 0 1.125-.504 1.125-1.125V11.25c0-4.46-3.243-8.161-7.5-8.876a9.06 9.06 0 0 0-1.5-.124H9.375c-.621 0-1.125.504-1.125 1.125v3.5m7.5 10.375H9.375a1.125 1.125 0 0 1-1.125-1.125v-9.25m12 6.625v-1.875a3.375 3.375 0 0 0-3.375-3.375h-1.5a1.125 1.125 0 0 1-1.125-1.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H9.75" /></svg>}
-                    </button>
-                    {chat.role === "user" && <button onClick={() => { setEditingIndex(i); setInput(chat.content); textareaRef.current?.focus(); }} className="text-slate-400 hover:text-blue-500 transition-colors p-1"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" /></svg></button>}
-                  </div>
                 </div>
-              </div>
-            ))}
-            {isLoading && <div className="flex gap-2 items-center text-[11px] text-slate-500 animate-pulse ml-11"><div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce" /><span>Roco sedang mengetik...</span></div>}
-            <div ref={chatEndRef} />
-          </div>
+              ))}
+              {isLoading && <div className="flex gap-2 items-center text-[11px] text-slate-500 animate-pulse ml-11"><div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce" /><span>Roco sedang mengetik...</span></div>}
+              <div ref={chatEndRef} />
+            </div>
+          )}
         </main>
 
-        <div className={`p-4 border-t z-20 ${isDarkMode ? "bg-[#171717] border-white/5" : "bg-white border-slate-100"}`}>
-          <div className="max-w-3xl mx-auto flex flex-col gap-2">
-            <div className="relative flex items-end">
-              <textarea ref={textareaRef} rows={1} className={`w-full p-4 pr-14 rounded-2xl shadow-sm focus:outline-none transition-all text-[15px] resize-none overflow-y-auto max-h-40 ${isDarkMode ? "bg-[#2f2f2f] border-white/10 text-white" : "bg-white border-slate-300 text-slate-900 shadow-sm"}`} placeholder={editingIndex !== null ? "Edit pesanmu..." : "Tanya Roco AI..."} value={input}
-                onChange={(e) => { setInput(e.target.value); e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; }}
-                onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(input, editingIndex !== null, editingIndex ?? undefined); }}}
-              />
-              <button onClick={() => !isLoading && handleSend(input, editingIndex !== null, editingIndex ?? undefined)} className={`absolute right-3 bottom-3 p-2 rounded-xl transition-all ${isDarkMode ? "bg-white text-black" : "bg-slate-900 text-white"}`}>
-                {isLoading ? <div className="w-5 h-5 flex items-center justify-center"><div className={`w-3 h-3 rounded-sm ${isDarkMode ? 'bg-black' : 'bg-white'} animate-pulse`} /></div> : <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 10.5 12 3m0 0 7.5 7.5M12 3v18" /></svg>}
-              </button>
+        {/* INPUT AREA */}
+        {chatLog.length > 0 && (
+            <div className={`p-4 border-t z-20 ${isDarkMode ? "bg-[#171717] border-white/5" : "bg-white border-slate-100"}`}>
+            <div className="max-w-3xl mx-auto flex flex-col gap-2">
+                {InputBox()}
+                {editingIndex !== null && (
+                <div className="flex justify-between items-center px-2">
+                    <p className="text-[10px] text-blue-500 font-bold italic uppercase tracking-wider">Mode Edit Aktif</p>
+                    <button onClick={() => { setEditingIndex(null); setInput(""); if(textareaRef.current) textareaRef.current.style.height="auto"; }} className="text-[10px] text-red-500 hover:underline font-bold">Batal Edit</button>
+                </div>
+                )}
+                <p className="text-[10px] text-center text-slate-500 font-medium tracking-tight mt-1 opacity-70">Roco AI v.1.1.4 — Roco can make mistakes.</p>
             </div>
-            {editingIndex !== null && (
-              <div className="flex justify-between items-center px-2">
-                <p className="text-[10px] text-blue-500 font-bold italic uppercase tracking-wider">Mode Edit Aktif</p>
-                <button onClick={() => { setEditingIndex(null); setInput(""); if(textareaRef.current) textareaRef.current.style.height="auto"; }} className="text-[10px] text-red-500 hover:underline font-bold">Batal Edit</button>
-              </div>
-            )}
-            <p className="text-[10px] text-center text-slate-500 font-medium tracking-tight mt-1 opacity-70">Roco AI v.1.1.3 — Roco can make mistakes.</p>
-          </div>
-        </div>
+            </div>
+        )}
       </div>
 
       {/* MODAL SYSTEM */}
       {modalConfig.isOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div onClick={closeModal} className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-          <div className={`relative w-full max-w-sm rounded-2xl shadow-2xl border p-6 animate-in fade-in zoom-in duration-200 ${isDarkMode ? "bg-[#252525] border-white/10" : "bg-white border-slate-200"}`}>
+          <div className={`relative w-full max-w-sm rounded-2xl shadow-2xl border p-6 animate-in fade-in zoom-in duration-200 ${isDarkMode ? "bg-[#252525] border-white/10 text-white" : "bg-white border-slate-200 text-slate-900"}`}>
             <h3 className="text-lg font-bold mb-2">{modalConfig.type === "rename" ? "Rename Chat" : modalConfig.type === "delete" ? "Delete Chat" : "Clear All History"}</h3>
             <p className="text-sm text-slate-500 mb-6">{modalConfig.type === "rename" ? "Ganti nama sesi riset ini." : modalConfig.type === "delete" ? "Yakin ingin menghapus sesi ini?" : "Hapus semua history?"}</p>
             {modalConfig.type === "rename" && <input autoFocus className={`w-full p-3 rounded-xl border mb-6 focus:outline-none focus:ring-2 focus:ring-blue-500 ${isDarkMode ? "bg-white/5 border-white/10 text-white" : "bg-slate-50 border-slate-200 text-slate-900"}`} value={modalConfig.value} onChange={(e) => setModalConfig({ ...modalConfig, value: e.target.value })} onKeyDown={(e) => e.key === "Enter" && handleRenameAction()} />}
@@ -355,6 +499,67 @@ export default function Home() {
               <button onClick={modalConfig.type === "rename" ? handleRenameAction : modalConfig.type === "delete" ? handleDeleteAction : handleClearAllAction} className={`px-4 py-2 rounded-lg text-sm font-bold text-white ${modalConfig.type === "rename" ? "bg-blue-600" : "bg-red-600"}`}>Konfirmasi</button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* UPDATE: MODAL PROFILE DENGAN UPLOAD */}
+      {isProfileModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <div onClick={() => setIsProfileModalOpen(false)} className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+            <div className={`relative w-full max-w-sm rounded-2xl shadow-2xl border p-6 animate-in fade-in zoom-in duration-200 ${isDarkMode ? "bg-[#252525] border-white/10 text-white" : "bg-white border-slate-200 text-slate-900"}`}>
+                <h3 className="text-lg font-bold mb-4">{userProfile ? "Edit Profile" : "Create New Profile"}</h3>
+                
+                <div className="space-y-5">
+                    {/* Bagian Upload Foto */}
+                    <div className="flex flex-col items-center gap-3">
+                        <div 
+                            onClick={() => fileInputRef.current?.click()}
+                            className="relative w-24 h-24 rounded-full border-2 border-dashed border-slate-500 flex items-center justify-center cursor-pointer hover:border-blue-500 hover:bg-white/5 transition-all overflow-hidden group"
+                        >
+                             {tempProfileAvatar ? (
+                                <img src={tempProfileAvatar} alt="Preview" className="w-full h-full object-cover" />
+                             ) : (
+                                <div className="text-center p-2">
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6 mx-auto mb-1 text-slate-500"><path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" /></svg>
+                                    <span className="text-[9px] uppercase font-bold text-slate-500">Upload</span>
+                                </div>
+                             )}
+                             {/* Overlay saat hover jika ada gambar */}
+                             {tempProfileAvatar && (
+                                <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                     <span className="text-[10px] text-white font-bold">Ganti Foto</span>
+                                </div>
+                             )}
+                        </div>
+                        <input 
+                            type="file" 
+                            ref={fileInputRef} 
+                            className="hidden" 
+                            accept="image/*"
+                            onChange={handleFileChange}
+                        />
+                        {tempProfileAvatar && (
+                            <button onClick={handleRemovePhoto} className="text-[10px] text-red-500 hover:underline">Hapus Foto</button>
+                        )}
+                    </div>
+
+                    {/* Bagian Input Nama */}
+                    <div>
+                        <label className="text-xs font-bold uppercase text-slate-500 tracking-wider mb-1 block">Nama Panggilan</label>
+                        <input 
+                            className={`w-full p-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-blue-500 ${isDarkMode ? "bg-white/5 border-white/10 text-white" : "bg-slate-50 border-slate-200 text-slate-900"}`} 
+                            placeholder="Contoh: Arno"
+                            value={tempProfileName}
+                            onChange={(e) => setTempProfileName(e.target.value)}
+                        />
+                    </div>
+                </div>
+
+                <div className="flex gap-3 justify-end mt-6">
+                    <button onClick={() => setIsProfileModalOpen(false)} className="px-4 py-2 text-sm text-slate-500 hover:text-slate-300">Batal</button>
+                    <button onClick={handleSaveProfile} className="px-4 py-2 rounded-lg text-sm font-bold text-white bg-blue-600 hover:bg-blue-500 transition-colors">Simpan Profile</button>
+                </div>
+            </div>
         </div>
       )}
 
@@ -373,6 +578,8 @@ export default function Home() {
         @keyframes zoomIn { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
         .animate-in { animation: fadeIn 0.3s ease-out; }
         .zoom-in { animation: zoomIn 0.2s ease-out; }
+        .slide-in-from-bottom-4 { animation: slideUp 0.5s ease-out; }
+        @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
       `}</style>
     </div>
   );
