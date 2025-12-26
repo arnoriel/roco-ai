@@ -31,7 +31,7 @@ export default function About() {
 
       {/* MAIN CONTENT */}
       <main className="flex-1 overflow-y-auto p-6 max-w-3xl mx-auto">
-        <h2 className="text-3xl font-bold mb-6">About Roco AI</h2>
+        <h2 className="text-3xl font-bold mb-6">Tentang Roco AI</h2>
         
         <section className="mb-8">
           <p className="text-base leading-relaxed mb-4">
