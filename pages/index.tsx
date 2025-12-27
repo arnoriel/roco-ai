@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import Link from "next/link";
+import Image from "next/image";
 
 // Interface untuk Profile
 interface UserProfile {
@@ -431,11 +432,24 @@ export default function Home() {
         {/* HEADER */}
         <nav className={`sticky top-0 left-0 right-0 border-b py-3 px-6 flex justify-between items-center z-30 backdrop-blur-md ${isDarkMode ? "border-white/10 bg-[#171717]/90" : "border-slate-200 bg-white/90"}`}>
           <div className="flex items-center gap-3">
-            <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="group flex items-center gap-2 outline-none">
-              <span className="font-bold text-lg tracking-tight group-hover:text-blue-500 transition-colors">Roco AI</span>
-            </button>
-          </div>
-          
+          <button
+            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+            className="group flex items-center gap-2 outline-none"
+          >
+            <Image
+              src="/logo.png"
+              alt="Roco AI Logo"
+              width={28}
+              height={28}
+              className="rounded-md"
+              priority
+            />
+            <span className="font-bold text-lg tracking-tight group-hover:text-blue-500 transition-colors">
+              Roco AI
+            </span>
+          </button>
+        </div>
+
           <div className="flex items-center gap-3">
             <button onClick={() => setIsDarkMode(!isDarkMode)} className={`p-2 rounded-lg transition-colors ${isDarkMode ? "text-yellow-400 hover:bg-white/5" : "text-slate-500 hover:bg-slate-100"}`}>{isDarkMode ? "☀️" : "🌙"}</button>
             
