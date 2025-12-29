@@ -148,7 +148,7 @@ INSTRUKSI:
     // 5. Eksekusi ke Groq (Llama 3.1 8B)
     const chatCompletion = await groq.chat.completions.create({
       messages: messages as any,
-      model: "llama-3.1-8b-instant",
+      model: "openai/gpt-oss-120b",
       temperature: 0.7,
       max_tokens: 1024,
       top_p: 1,
