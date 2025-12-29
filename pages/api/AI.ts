@@ -133,7 +133,13 @@ ${researchData ? researchData : "Gunakan basis data internalmu (cutoff 2023)."}
 INSTRUKSI:
 - Jika user bertanya tentang mode-mode di atas, jelaskan sesuai daftar di atas.
 - Selalu gunakan bahasa Indonesia sesuai karakter mode yang aktif.
-- Jika memberikan kode kodingan, gunakan format Markdown yang rapi.`,
+- Jika memberikan kode kodingan, gunakan format Markdown yang rapi.
+
+PENTING INSTRUKSI PEMBATASAN:
+        1. Jawabanmu HARUS lengkap dan diakhiri dengan titik. 
+        2. Jangan memberikan jawaban yang terlalu panjang yang berisiko terpotong di tengah jalan.
+        3. Jika informasi terlalu banyak, buatlah ringkasan atau poin-poin penting saja.
+        4. Batasi jawabanmu maksimal sekitar 200-300 kata agar aman dari batasan token.`,
       },
       ...history.slice(-4).map((chat: any) => ({
         role: chat.role === "user" ? "user" : "assistant",
