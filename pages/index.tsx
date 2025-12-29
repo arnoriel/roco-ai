@@ -514,7 +514,15 @@ export default function Home() {
                   <div className="flex flex-col gap-1.5 max-w-[88%] md:max-w-[85%]">
                     <div className={`px-4 py-2.5 rounded-2xl text-[14.5px] leading-relaxed ${chat.role === "user" ? (isDarkMode ? "bg-[#2f2f2f]" : "bg-white border border-slate-100 shadow-sm") : ""}`}>
                       <div className={`prose prose-sm md:prose-base max-w-full overflow-hidden break-words ${isDarkMode ? "prose-invert" : "prose-slate"}`}>
-                        <ReactMarkdown remarkPlugins={[remarkGfm]} components={{ code: (props) => <CodeBlock {...props} dark={isDarkMode} /> }}>{chat.content}</ReactMarkdown>
+                        <ReactMarkdown 
+                          remarkPlugins={[remarkGfm]} 
+                          components={{
+                            a: ({ node, ...props }) => <a {...props} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline" />,
+                            code: (props) => <CodeBlock {...props} dark={isDarkMode} />
+                          }}
+                        >
+                          {chat.content}
+                        </ReactMarkdown>
                       </div>
                     </div>
                     <div className={`flex items-center gap-4 px-1 ${chat.role === "user" ? "flex-row-reverse" : "flex-row"}`}>

@@ -32,7 +32,7 @@ async function researchWeb(query: string) {
 
     if (data.results && data.results.length > 0) {
       const searchContext = data.results
-        .map((res: any) => `- ${res.title}: ${res.content}`)
+        .map((res: any) => `- [${res.title}](${res.url}): ${res.content}`)
         .join("\n\n");
       return searchContext;
     }
@@ -72,7 +72,7 @@ export default async function handler(
       "skor",
       "harga",
     ];
-    let needsResearch = mode === "Corsero"; // Mode Corsero selalu riset
+    let needsResearch = mode === "Corsero";
     if (!needsResearch) {
       needsResearch = timeKeywords.some((keyword) =>
         prompt.toLowerCase().includes(keyword)
@@ -101,13 +101,14 @@ export default async function handler(
         break;
       case "Corsero":
         characterDesc = `- Kamu asisten peneliti yang selalu menggunakan data riset internet.
-- Gunakan bahasa Indonesia santai tapi informatif dan sertakan sumber jika ada.`;
+- Gunakan bahasa Indonesia santai tapi informatif.
+- Sertakan sumber sebagai link clickable dalam format Markdown seperti [Nama Sumber](URL) di akhir jawaban jika ada data riset. Hanya gunakan sumber dari SUMBER DATA yang disediakan, jangan ciptakan atau modifikasi sumber sendiri.`;
         break;
       default:
         characterDesc = `- Kamu asisten standar yang ramah dan membantu.`;
     }
 
-    // 4. Konstruksi System Prompt agar Roco AI Mengenali Dirinya
+    // 4. Konstruksi System Prompt
     const messages = [
       {
         role: "system",
@@ -134,12 +135,13 @@ INSTRUKSI:
 - Jika user bertanya tentang mode-mode di atas, jelaskan sesuai daftar di atas.
 - Selalu gunakan bahasa Indonesia sesuai karakter mode yang aktif.
 - Jika memberikan kode kodingan, gunakan format Markdown yang rapi.
+- Saat cite sumber, gunakan hanya dari SUMBER DATA yang diberikan. Jangan tambah, modifikasi, atau ciptakan link/sumber baru. Jika tidak ada sumber relevan, katakan "Tidak ada data riset terkini".
 
 PENTING INSTRUKSI PEMBATASAN:
-        1. Jawabanmu HARUS lengkap dan diakhiri dengan titik. 
-        2. Jangan memberikan jawaban yang terlalu panjang yang berisiko terpotong di tengah jalan.
-        3. Jika informasi terlalu banyak, buatlah ringkasan atau poin-poin penting saja.
-        4. Batasi jawabanmu maksimal sekitar 200-300 kata agar aman dari batasan token.`,
+1. Jawabanmu HARUS lengkap dan diakhiri dengan tanda baca yang sesuai (seperti titik jika diperlukan). Jangan tambah titik ekstra jika sudah ada.
+2. Jangan memberikan jawaban yang terlalu panjang yang berisiko terpotong di tengah jalan.
+3. Jika informasi terlalu banyak, buatlah ringkasan atau poin-poin penting saja.
+4. Batasi jawabanmu maksimal sekitar 200-300 kata agar aman dari batasan token.`,
       },
       ...history.slice(-4).map((chat: any) => ({
         role: chat.role === "user" ? "user" : "assistant",
@@ -151,17 +153,30 @@ PENTING INSTRUKSI PEMBATASAN:
       },
     ];
 
-    // 5. Eksekusi ke Groq (Llama 3.1 8B)
+    // 5. Tentukan temperature berdasarkan mode (sesuai permintaanmu)
+    let temperatureValue = 0.5; // Default
+    if (mode === "Vanilla") {
+      temperatureValue = 0.7;
+    } else if (mode === "Homule") {
+      temperatureValue = 0.9;
+    } else if (mode === "Corsero") {
+      temperatureValue = 0.3;
+    } else if (mode === "Seronic") {
+      temperatureValue = 0.2;
+    }
+
+    // 6. Eksekusi ke Groq
     const chatCompletion = await groq.chat.completions.create({
       messages: messages as any,
-      model: "openai/gpt-oss-120b",
-      temperature: 0.7,
+      model: "meta-llama/llama-4-scout-17b-16e-instruct",
+      temperature: temperatureValue,
       max_tokens: 1024,
       top_p: 1,
       stream: false,
     });
 
-    const responseText = chatCompletion.choices[0]?.message?.content || "";
+    let responseText = chatCompletion.choices[0]?.message?.content || "";
+    responseText = responseText.trim().replace(/\.{2,}$/, '.');
 
     res.status(200).json({
       text: responseText,
