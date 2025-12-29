@@ -1,3 +1,4 @@
+import React from "react";
 import { useState, useEffect, useRef } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -7,7 +8,7 @@ import Image from "next/image";
 // Interface untuk Profile
 interface UserProfile {
   name: string;
-  avatar: string; // Sekarang akan berisi string Base64 gambar
+  avatar: string;
 }
 
 interface ChatSession {
@@ -63,6 +64,20 @@ const CodeBlock = ({ node, inline, className, children, dark, ...props }: any) =
   );
 };
 
+const YouTubePlayer = ({ videoId }: { videoId: string }) => (
+  <div className="my-4 rounded-xl overflow-hidden border border-slate-700 shadow-lg">
+    <iframe
+      width="100%"
+      height="315"
+      src={`https://www.youtube.com/embed/${videoId}?autoplay=0&rel=0`}
+      title="YouTube video player"
+      frameBorder="0"
+      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+      allowFullScreen
+    ></iframe>
+  </div>
+);
+
 const ModeDropdown = ({ selectedMode, setSelectedMode, isDarkMode }: { selectedMode: string, setSelectedMode: (mode: string) => void, isDarkMode: boolean }) => {
   const [isOpen, setIsOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -111,7 +126,6 @@ export default function Home() {
   const [tempProfileName, setTempProfileName] = useState("");
   const [tempProfileAvatar, setTempProfileAvatar] = useState("");
 
-  // State baru untuk mode personality
   const [selectedMode, setSelectedMode] = useState("Vanilla");
 
   const [modalConfig, setModalConfig] = useState<{
@@ -125,7 +139,6 @@ export default function Home() {
   const menuRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   
-  // Ref untuk File Input
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const createNewChat = (isInitial = false) => {
@@ -145,7 +158,6 @@ export default function Home() {
     const savedTheme = localStorage.getItem("theme");
     const savedMode = localStorage.getItem("roco_mode");
     
-    // Load Profile
     const savedProfile = localStorage.getItem("roco_profile");
     if (savedProfile) {
       setUserProfile(JSON.parse(savedProfile));
@@ -215,11 +227,9 @@ export default function Home() {
     }
   }, [sessions, activeSessionId, isLoading]);
 
-  // UPDATE: Logic Upload File
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      // Validasi Ukuran: Max 1MB untuk localStorage safety
       if (file.size > 1024 * 1024) {
         alert("Ukuran file terlalu besar! Maksimal 1MB.");
         return;
@@ -241,7 +251,6 @@ export default function Home() {
     }
   };
 
-  // Handle Save Profile
   const handleSaveProfile = () => {
     const newProfile = {
       name: tempProfileName.trim(),
@@ -256,11 +265,10 @@ export default function Home() {
         setIsProfileModalOpen(false);
     } catch (error) {
         console.error(error);
-        alert("Gagal menyimpan profile. Kemungkinan file gambar terlalu besar.");
+        alert("Gagal menyimpan profile.");
     }
   };
 
-  // Open Profile Modal logic
   const openProfileModal = () => {
     if (userProfile) {
       setTempProfileName(userProfile.name);
@@ -311,7 +319,7 @@ export default function Home() {
           prompt: messageToSend, 
           history: updatedHistory.slice(0, -1),
           userName: userProfile?.name,
-          mode: selectedMode // Kirim mode ke backend
+          mode: selectedMode
         }),
       });
       const data = await response.json();
@@ -353,7 +361,6 @@ export default function Home() {
     closeModal();
   };
 
-  // Component Input Box (diperbarui dengan custom dropdown di dalam input, posisi kiri bawah)
   const InputBox = () => (
     <div className="w-full relative flex items-end">
       <textarea ref={textareaRef} rows={1} 
@@ -453,10 +460,8 @@ export default function Home() {
           <div className="flex items-center gap-3">
             <button onClick={() => setIsDarkMode(!isDarkMode)} className={`p-2 rounded-lg transition-colors ${isDarkMode ? "text-yellow-400 hover:bg-white/5" : "text-slate-500 hover:bg-slate-100"}`}>{isDarkMode ? "☀️" : "🌙"}</button>
             
-            {/* Profile Button */}
             <button onClick={openProfileModal} className="relative w-8 h-8 rounded-full overflow-hidden border border-gray-300 dark:border-white/20 hover:ring-2 hover:ring-blue-500 transition-all">
                 {userProfile?.avatar ? (
-                   // eslint-disable-next-line @next/next/no-img-element
                    <img src={userProfile.avatar} alt="Profile" className="w-full h-full object-cover" />
                 ) : (
                    <div className={`w-full h-full flex items-center justify-center ${isDarkMode ? "bg-white/10 text-white" : "bg-slate-200 text-slate-500"}`}>
@@ -471,13 +476,11 @@ export default function Home() {
 
         <main className="flex-1 overflow-y-auto custom-scrollbar flex flex-col">
           {chatLog.length === 0 ? (
-            // Tampilan Tengah (Kondisi Chat Kosong)
             <div className="flex-1 flex flex-col items-center justify-center px-4">
               <div className="w-full max-w-2xl space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
                   <div className="text-center space-y-4">
                       <div className={`w-20 h-20 mx-auto rounded-3xl flex items-center justify-center text-4xl border shadow-lg ${isDarkMode ? "bg-white/5 border-white/10" : "bg-white border-slate-200"}`}>🔍</div>
                       
-                      {/* GREETING PERSONAL */}
                       <h2 className="text-2xl font-bold tracking-tight">
                         {userProfile ? `Hi, ${userProfile.name}!` : "Selamat Datang!"}
                       </h2>
@@ -486,7 +489,6 @@ export default function Home() {
                       </p>
                   </div>
                   
-                  {/* INPUT BOX DI TENGAH */}
                   <div className="w-full">
                      {InputBox()}
                      <div className="flex justify-center mt-4 gap-2">
@@ -499,7 +501,6 @@ export default function Home() {
               </div>
             </div>
           ) : (
-            // Tampilan Chat Biasa
             <div className="max-w-3xl mx-auto w-full p-4 space-y-8 pb-32">
               {chatLog.map((chat, i) => (
                 <div key={i} className={`flex gap-3 md:gap-4 group ${chat.role === "user" ? "flex-row-reverse" : "flex-row"}`}>
@@ -517,8 +518,59 @@ export default function Home() {
                         <ReactMarkdown 
                           remarkPlugins={[remarkGfm]} 
                           components={{
-                            a: ({ node, ...props }) => <a {...props} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline" />,
-                            code: (props) => <CodeBlock {...props} dark={isDarkMode} />
+                            a: ({ node, children, ...props }) => {
+                              const href = props.href || "";
+                              const childText = String(children);
+                              if (href.includes("youtube.com/watch?v=") && childText.includes("[PLAY_YOUTUBE")) {
+                                return null; 
+                              }
+                              
+                              return (
+                                <a 
+                                  {...props} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer" 
+                                  className="text-blue-500 hover:underline"
+                                >
+                                  {children}
+                                </a>
+                              );
+                            },
+
+                            code: (props) => <CodeBlock {...props} dark={isDarkMode} />,
+                            p: ({ node, children }) => {
+                              const content = React.Children.toArray(children).reduce((acc: string, child) => {
+                                if (typeof child === 'string') return acc + child;
+                                
+                                if (React.isValidElement(child)) {
+                                  const childProps = child.props as any;
+
+                                  if (childProps.children) return acc + String(childProps.children);
+                                }
+                                
+                                return acc;
+                              }, "");
+
+                              const youtubeRegex = /\[PLAY_YOUTUBE:\s*https?:\/\/(?:www\.)?youtube\.com\/watch\?v=([a-zA-Z0-9_-]{11})[^\s\]]*\]/i;
+                              const match = content.match(youtubeRegex);
+
+                              if (match) {
+                                const videoId = match[1];
+                                const cleanText = content.replace(youtubeRegex, '').trim();
+
+                                return (
+                                  <div className="flex flex-col gap-3 my-2">
+                                    {cleanText && <p>{cleanText}</p>}
+                                    <div className="w-full max-w-full overflow-hidden rounded-xl shadow-lg border border-white/10">
+                                      <YouTubePlayer videoId={videoId} />
+                                    </div>
+                                  </div>
+                                );
+                              }
+
+                              // Jika paragraf biasa
+                              return <p className="mb-4 last:mb-0 leading-relaxed">{children}</p>;
+                            },
                           }}
                         >
                           {chat.content}
@@ -540,7 +592,6 @@ export default function Home() {
           )}
         </main>
 
-        {/* INPUT AREA */}
         {chatLog.length > 0 && (
             <div className={`p-4 border-t z-20 ${isDarkMode ? "bg-[#171717] border-white/5" : "bg-white border-slate-100"}`}>
             <div className="max-w-3xl mx-auto flex flex-col gap-2">
@@ -551,11 +602,10 @@ export default function Home() {
                     <button onClick={() => { setEditingIndex(null); setInput(""); if(textareaRef.current) textareaRef.current.style.height="auto"; }} className="text-[10px] text-red-500 hover:underline font-bold">Batal Edit</button>
                 </div>
                 )}
-                <p className="text-[10px] text-center text-slate-500 font-medium tracking-tight mt-1 opacity-70">Roco AI v.1.1.4 — Roco can make mistakes.</p>
+                <p className="text-[10px] text-center text-slate-500 font-medium tracking-tight mt-1 opacity-70">Roco AI v.1.1.5 — Roco can make mistakes.</p>
             </div>
             </div>
         )}
-      </div>
 
       {/* MODAL SYSTEM */}
       {modalConfig.isOpen && (
@@ -573,7 +623,7 @@ export default function Home() {
         </div>
       )}
 
-      {/* UPDATE: MODAL PROFILE DENGAN UPLOAD */}
+      {/* MODAL PROFILE */}
       {isProfileModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
             <div onClick={() => setIsProfileModalOpen(false)} className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
@@ -581,7 +631,6 @@ export default function Home() {
                 <h3 className="text-lg font-bold mb-4">{userProfile ? "Edit Profil" : "Buat Profil Baru"}</h3>
                 
                 <div className="space-y-5">
-                    {/* Bagian Upload Foto */}
                     <div className="flex flex-col items-center gap-3">
                         <div 
                             onClick={() => fileInputRef.current?.click()}
@@ -595,7 +644,6 @@ export default function Home() {
                                     <span className="text-[9px] uppercase font-bold text-slate-500">Upload</span>
                                 </div>
                              )}
-                             {/* Overlay saat hover jika ada gambar */}
                              {tempProfileAvatar && (
                                 <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                                      <span className="text-[10px] text-white font-bold">Ganti Foto</span>
@@ -614,7 +662,6 @@ export default function Home() {
                         )}
                     </div>
 
-                    {/* Bagian Input Nama */}
                     <div>
                         <label className="text-xs font-bold uppercase text-slate-500 tracking-wider mb-1 block">Nama Panggilan</label>
                         <input 
@@ -634,7 +681,6 @@ export default function Home() {
         </div>
       )}
 
-      {/* OVERLAY MOBILE */}
       <div 
         onClick={() => setIsSidebarOpen(false)} 
         className={`fixed inset-0 bg-black/50 backdrop-blur-sm z-40 lg:hidden transition-opacity duration-300
@@ -654,6 +700,7 @@ export default function Home() {
         .animate-dropdownOpen { animation: dropdownOpen 0.2s ease-out; }
         @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
       `}</style>
+    </div>
     </div>
   );
 }

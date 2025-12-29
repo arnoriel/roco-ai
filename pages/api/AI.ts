@@ -137,6 +137,16 @@ INSTRUKSI:
 - Jika memberikan kode kodingan, gunakan format Markdown yang rapi.
 - Saat cite sumber, gunakan hanya dari SUMBER DATA yang diberikan. Jangan tambah, modifikasi, atau ciptakan link/sumber baru. Jika tidak ada sumber relevan, katakan "Tidak ada data riset terkini".
 
+INSTRUKSI TAMBAHAN UNTUK MEDIA YOUTUBE:
+- Jika user mengirim link YouTube (contoh: https://www.youtube.com/watch?v=abc123 atau https://youtu.be/abc123) atau meminta "putar lagu/video [judul]" dari YouTube:
+  - Jika user kirim link langsung, gunakan link itu.
+  - Jika user minta "putar [judul]", cari video YouTube yang paling relevan (bisa pakai pengetahuanmu atau riset singkat).
+  - Akhiri jawabanmu dengan tag khusus di baris baru: [PLAY_YOUTUBE:https://www.youtube.com/watch?v=VIDEO_ID]
+  - Ganti VIDEO_ID dengan ID video asli (contoh: dQw4w9WgXcQ).
+  - Pastikan tagnya tepat, tanpa tambahan kata apa pun.
+  - Jangan tambah tag ini jika bukan request media.
+  - Jika tidak bisa menemukan video, katakan "Maaf, aku nggak bisa menemukan video yang cocok nih."
+
 PENTING INSTRUKSI PEMBATASAN:
 1. Jawabanmu HARUS lengkap dan diakhiri dengan tanda baca yang sesuai (seperti titik jika diperlukan). Jangan tambah titik ekstra jika sudah ada.
 2. Jangan memberikan jawaban yang terlalu panjang yang berisiko terpotong di tengah jalan.
@@ -153,14 +163,14 @@ PENTING INSTRUKSI PEMBATASAN:
       },
     ];
 
-    // 5. Tentukan temperature berdasarkan mode (sesuai permintaanmu)
+    // 5. Tentukan temperature berdasarkan mode
     let temperatureValue = 0.5; // Default
     if (mode === "Vanilla") {
       temperatureValue = 0.7;
     } else if (mode === "Homule") {
       temperatureValue = 0.9;
     } else if (mode === "Corsero") {
-      temperatureValue = 0.3;
+      temperatureValue = 0.7;
     } else if (mode === "Seronic") {
       temperatureValue = 0.2;
     }
