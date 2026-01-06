@@ -185,7 +185,7 @@ PENTING INSTRUKSI PEMBATASAN:
       messages: messages as any,
       model: "meta-llama/llama-4-scout-17b-16e-instruct",
       temperature: temperatureValue,
-      max_tokens: 1024,
+      max_tokens: 2048,
       top_p: 1,
       stream: false,
     });
