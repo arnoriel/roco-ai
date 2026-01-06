@@ -152,7 +152,7 @@ Sekarang jawab permintaan user dengan benar.`;
         model: "xiaomi/mimo-v2-flash:free", // cepat & pintar
         messages,
         temperature,
-        max_tokens: 2048,
+        max_tokens: 8192,
       }),
     });
 
