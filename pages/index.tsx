@@ -424,7 +424,7 @@ export default function Home() {
           <div className={`mt-4 pt-4 border-t ${isDarkMode ? "border-white/10" : "border-slate-200"}`}>
             <div className="flex flex-col gap-1 px-2 mb-4">
               <span className="text-[11px] font-bold text-slate-400 tracking-tight">Roco AI v.1.1.5</span>
-              <span className="text-[10px] text-slate-500">Created by <span className="font-semibold text-blue-500">Arno</span></span>
+              <span className="text-[10px] text-slate-500">Project Undergo With <span className="font-semibold text-blue-500">Aion Labs</span></span>
             </div>
             <Link href="/about">
               <button className="w-full p-2 text-[11px] font-medium text-blue-500 hover:text-blue-400 hover:bg-blue-500/5 rounded-lg transition-colors text-center mb-2">Tentang</button>

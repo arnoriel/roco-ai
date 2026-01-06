@@ -86,7 +86,7 @@ export default function About() {
           </ul>
         </section>
 
-        <section id="help" className="mb-8">
+        <section id="help" className="mb-12">
           <h2 className="text-2xl font-semibold mb-4">Help / Bantuan</h2>
           <p className="text-base leading-relaxed mb-4">
             Cara menggunakan Roco AI:
@@ -99,10 +99,32 @@ export default function About() {
             <li>Gunakan sidebar untuk history chat, buat chat baru, atau hapus history.</li>
             <li>Ubah tema dark/light di atas kanan.</li>
           </ol>
-          <p className="mt-4">Jika ada masalah, hubungi developer di [email/contact].</p>
-          <p className="mt-4">Email: azrilluthfimulyadi@gmail.com</p>
-          <p className="mt-4">Contact: +62 857-9700-9915</p>
+          <div className="mt-6 p-4 rounded-xl border border-dashed border-gray-500/30">
+            <p className="font-medium">Hubungi developer:</p>
+            <p className="text-sm opacity-80">Email: azrilluthfimulyadi@gmail.com</p>
+            <p className="text-sm opacity-80">Contact: +62 857-9700-9915</p>
+          </div>
         </section>
+
+        {/* FOOTER ACQUISITION SECTION */}
+        <footer className={`mt-16 pt-8 pb-12 border-t flex flex-col items-center justify-center gap-4 ${isDarkMode ? "border-white/10" : "border-slate-200"}`}>
+          <div className="flex items-center gap-2 text-sm opacity-60">
+            <span>© 2025</span>
+            <a 
+              href="https://aion-landing-six.vercel.app/" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="font-bold hover:text-blue-500 transition-colors"
+            >
+              Aion Labs
+            </a>
+            <span>&</span>
+            <span className="font-medium">Roco</span>
+          </div>
+          <p className={`text-[10px] uppercase tracking-[0.2em] font-semibold ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>
+            Part of Aion Labs Ecosystem
+          </p>
+        </footer>
       </main>
 
       <style jsx global>{`
@@ -111,4 +133,4 @@ export default function About() {
       `}</style>
     </div>
   );
-}   
+}
