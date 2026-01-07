@@ -120,7 +120,7 @@ INSTRUKSI KHUSUS UNTUK YOUTUBE:
 ATURAN UMUM:
 - Jawab dalam bahasa Indonesia sesuai karakter mode.
 - Jika ada data riset, cantumkan sumber dengan link markdown.
-- Jawaban maksimal 300-400 kata, ringkas tapi lengkap.
+- Jawaban ringkas tapi lengkap; jika konteks kompleks, boleh lebih panjang asal relevan.
 - Akhiri kalimat dengan tanda baca yang tepat.
 
 Sekarang jawab permintaan user dengan benar.`;
@@ -152,7 +152,7 @@ Sekarang jawab permintaan user dengan benar.`;
         model: "xiaomi/mimo-v2-flash:free", // cepat & pintar
         messages,
         temperature,
-        max_tokens: 8192,
+        max_tokens: 16384,
       }),
     });
 
