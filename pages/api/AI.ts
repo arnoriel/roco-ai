@@ -1,4 +1,3 @@
-// pages/api/AI.ts
 import type { NextApiRequest, NextApiResponse } from "next";
 
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
@@ -47,11 +46,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     history = [],
     userName,
     mode: rawMode = "Vanilla",
+    isTitleGeneration = false,
   } = req.body as {
     prompt?: string;
     history?: { role: string; content: string }[];
     userName?: string;
     mode?: string;
+    isTitleGeneration?: boolean;
   };
 
   // Validasi prompt wajib ada
@@ -92,8 +93,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     };
     const characterDesc = characterDescMap[activeMode];
 
-    // System prompt lengkap dengan instruksi YouTube
-    const systemPrompt = `Kamu adalah Roco AI, dibuat oleh Arno dari AION LABS.
+    let systemPrompt = `Kamu adalah Roco AI, dibuat oleh Arno dari AION LABS.
 
 Saat ini:
 - User: ${userName || "Teman"}
@@ -124,6 +124,11 @@ ATURAN UMUM:
 - Akhiri kalimat dengan tanda baca yang tepat.
 
 Sekarang jawab permintaan user dengan benar.`;
+
+    // Modifikasi systemPrompt jika isTitleGeneration true
+    if (isTitleGeneration) {
+      systemPrompt += `\n\nINSTRUKSI: Ini request generate judul. Jawab HANYA dengan judul itu sendiri, tanpa penjelasan tambahan, tag, atau kalimat lain. Contoh: "Riset Harga Saham Hari Ini".`;
+    }
 
     const messages = [
       { role: "system", content: systemPrompt },
