@@ -514,7 +514,17 @@ export default function Home() {
             </button>
           </div>
           <div className="flex items-center gap-3">
-            <button onClick={() => setIsDarkMode(!isDarkMode)} className={`p-2 rounded-lg transition-colors ${isDarkMode ? "text-yellow-400 hover:bg-white/5" : "text-slate-500 hover:bg-slate-100"}`}>{isDarkMode ? "Sun" : "Moon"}</button>
+            <button onClick={() => setIsDarkMode(!isDarkMode)} className={`p-2 rounded-lg transition-colors ${isDarkMode ? "text-yellow-400 hover:bg-white/5" : "text-slate-500 hover:bg-slate-100"}`}>
+            {isDarkMode ? (
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v2.25m6.364.386l-1.591 1.591M21 12h-2.25m-.386 6.364l-1.591-1.591M12 18.75V21m-4.773-1.591l-1.591-1.591M5.25 12H3m.386-6.364l-1.591-1.591M12 6.75a5.25 5.25 0 11-5.25 5.25A5.25 5.25 0 0112 6.75z" />
+              </svg>
+            ) : (
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21.752 15.002A9.718 9.718 0 0118 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.75A9.753 9.753 0 003 12c0 5.385 4.365 9.75 9.75 9.75 2.25 0 4.364-.386 6.002-.748v.002z" />
+              </svg>
+            )}
+            </button>
             <button onClick={openProfileModal} className="relative w-8 h-8 rounded-full overflow-hidden border border-gray-300 dark:border-white/20 hover:ring-2 hover:ring-blue-500 transition-all">
               {userProfile?.avatar ? <img src={userProfile.avatar} alt="Profile" className="w-full h-full object-cover" /> : (
                 <div className={`w-full h-full flex items-center justify-center ${isDarkMode ? "bg-white/10 text-white" : "bg-slate-200 text-slate-500"}`}>
@@ -532,7 +542,11 @@ export default function Home() {
             <div className="flex-1 flex flex-col items-center justify-center px-4">
               <div className="w-full max-w-2xl space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
                 <div className="text-center space-y-4">
-                  <div className={`w-20 h-20 mx-auto rounded-3xl flex items-center justify-center text-4xl border shadow-lg ${isDarkMode ? "bg-white/5 border-white/10" : "bg-white border-slate-200"}`}>Search</div>
+                  <div className={`w-20 h-20 mx-auto rounded-3xl flex items-center justify-center text-4xl border shadow-lg ${isDarkMode ? "bg-white/5 border-white/10" : "bg-white border-slate-200"}`}>
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-12 h-12">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+                  </svg>
+                  </div>
                   <h2 className="text-2xl font-bold tracking-tight">{userProfile ? `Hi, ${userProfile.name}!` : "Selamat Datang!"}</h2>
                   <p className={`text-lg font-medium ${isDarkMode ? "text-slate-400" : "text-slate-600"}`}>{randomOpening}</p>
                 </div>
