@@ -510,7 +510,7 @@ export default function Home() {
           <div className="flex items-center gap-3">
             <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="group flex items-center gap-2 outline-none">
               <Image src="/logo.png" alt="Roco AI Logo" width={28} height={28} className="rounded-md" priority />
-              <span className="font-bold text-lg tracking-tight group-hover:text-blue-500 transition-colors">Roco ai</span>
+              <span className="font-bold text-lg tracking-tight group-hover:text-blue-500 transition-colors">Roco Smart AI</span>
             </button>
           </div>
           <div className="flex items-center gap-3">
