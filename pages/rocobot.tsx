@@ -233,34 +233,61 @@ const RocobotPage: React.FC = () => {
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!prompt || isLoading || !voicesLoaded) return;
-    setIsLoading(true);
-    try {
-      const res = await fetch("/api/AI", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt, history: [], mode: "Vanilla", isRocobot: true }),
-      });
-      const data = await res.json();
-      const aiText = data.text || "Connection error.";
-      if ("speechSynthesis" in window) {
-        const utterance = new SpeechSynthesisUtterance(aiText);
-        const voices = window.speechSynthesis.getVoices();
-        const idVoice = voices.find((v) => v.lang.includes("id")) || voices[0];
+  e.preventDefault();
+  if (!prompt || isLoading || !voicesLoaded) return;
+  setIsLoading(true);
+
+  try {
+    const res = await fetch("/api/AI", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt, history: [], mode: "Vanilla", isRocobot: true }),
+    });
+    const data = await res.json();
+    const aiText = data.text || "Error.";
+
+    if ("speechSynthesis" in window) {
+      // BATALKAN suara sebelumnya jika masih ada yang bicara
+      window.speechSynthesis.cancel();
+
+      const utterance = new SpeechSynthesisUtterance(aiText);
+      const voices = window.speechSynthesis.getVoices();
+
+      // TRACING: Cek suara yang tersedia di device ini
+      console.log("Available Voices:", voices.map(v => `${v.name} (${v.lang})`));
+
+      // PRIORITAS 1: Cari suara Bahasa Indonesia dari Google (Paling stabil di Android/Chrome)
+      // PRIORITAS 2: Cari suara bahasa Indonesia apapun
+      // PRIORITAS 3: Fallback ke suara pertama
+      const idVoice = 
+        voices.find((v) => v.lang === "id-ID" && v.name.includes("Google")) || 
+        voices.find((v) => v.lang.includes("id")) || 
+        voices[0];
+
+      if (idVoice) {
         utterance.voice = idVoice;
-        utterance.pitch = 0.1; 
-        utterance.onstart = () => { isSpeakingRef.current = true; };
-        utterance.onend = () => { isSpeakingRef.current = false; };
-        window.speechSynthesis.speak(utterance);
+        utterance.lang = "id-ID"; // Paksa lang ke ID agar browser mencoba menggunakan engine ID
       }
-    } catch (error) {
-      console.error(error);
-      isSpeakingRef.current = false;
+
+      utterance.pitch = 0.6; // 0.1 terlalu rendah/berat, standar adalah 1.0
+      utterance.rate = 1.0;  // Kecepatan normal
+      
+      utterance.onstart = () => { isSpeakingRef.current = true; };
+      utterance.onend = () => { isSpeakingRef.current = false; };
+      utterance.onerror = (err) => { 
+        console.error("TTS Error:", err);
+        isSpeakingRef.current = false; 
+      };
+
+      window.speechSynthesis.speak(utterance);
     }
-    setPrompt("");
-    setIsLoading(false);
-  };
+  } catch (error) {
+    console.error(error);
+    isSpeakingRef.current = false;
+  }
+  setPrompt("");
+  setIsLoading(false);
+};
 
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-gray-300">
