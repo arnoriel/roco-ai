@@ -415,7 +415,7 @@ export default function Home() {
                   <button onClick={() => { setEditingIndex(null); setInput(""); if(textareaRef.current) textareaRef.current.style.height="auto"; }} className="text-[10px] text-red-500 hover:underline font-bold">Batal Edit</button>
                 </div>
               )}
-              <p className="text-[10px] text-center text-slate-500 font-medium tracking-tight mt-1 opacity-70">Roco AI v.1.1.5 — Roco can make mistakes.</p>
+              <p className="text-[10px] text-center text-slate-500 font-medium tracking-tight mt-1 opacity-70">Roco AI v.1.1.6 — Roco can make mistakes.</p>
             </div>
           </div>
         )}

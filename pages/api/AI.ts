@@ -47,12 +47,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     userName,
     mode: rawMode = "Vanilla",
     isTitleGeneration = false,
+    isRocobot = false, // Tambahan param untuk bedakan Rocobot
   } = req.body as {
     prompt?: string;
     history?: { role: string; content: string }[];
     userName?: string;
     mode?: string;
     isTitleGeneration?: boolean;
+    isRocobot?: boolean;
   };
 
   // Validasi prompt wajib ada
@@ -122,8 +124,13 @@ ATURAN UMUM:
 - Jika ada data riset, cantumkan sumber dengan link markdown.
 - Jawaban ringkas tapi lengkap; jika konteks kompleks, boleh lebih panjang asal relevan.
 - Akhiri kalimat dengan tanda baca yang tepat.
+`;
 
-Sekarang jawab permintaan user dengan benar.`;
+    // Tambahan instruksi khusus untuk Rocobot (tanpa emoji)
+    if (isRocobot) {
+      systemPrompt += `
+- Ini adalah mode Rocobot (virtual robot speech). JANGAN gunakan emoji atau simbol apapun dalam jawaban, karena akan dibaca sebagai teks speech. Ganti emoji dengan deskripsi verbal jika perlu, tapi lebih baik hindari sama sekali untuk kejelasan suara.`;
+    }
 
     // Modifikasi systemPrompt jika isTitleGeneration true
     if (isTitleGeneration) {
@@ -172,6 +179,9 @@ Sekarang jawab permintaan user dengan benar.`;
 
     // Bersihkan titik berulang di akhir
     text = text.replace(/\.{2,}$/, ".");
+
+    // Opsional: Bersihkan emoji dari text (sebagai fallback)
+    text = text.replace(/[\u{1F000}-\u{1FFFF}]/gu, ''); // Hapus emoji unicode
 
     res.status(200).json({
       text,
