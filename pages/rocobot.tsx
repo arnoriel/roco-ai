@@ -20,6 +20,11 @@ const RocobotPage: React.FC = () => {
   const eyeRightRef = useRef<THREE.Mesh>(null);
   const backRingRef = useRef<THREE.Mesh>(null);
   const neuronParticlesRef = useRef<THREE.Points>(null);
+  
+  // Refs untuk animasi tambahan
+  const robotGroupRef = useRef<THREE.Group>(null);
+  const leftArmRef = useRef<THREE.Group>(null);
+  const rightArmRef = useRef<THREE.Group>(null);
 
   // --- LOGIC SEQUENCE INTRO ---
   useEffect(() => {
@@ -84,11 +89,13 @@ const RocobotPage: React.FC = () => {
 
     // --- ROBOT MODEL ---
     const robotGroup = new THREE.Group();
+    (robotGroupRef as any).current = robotGroup;
+
     const roboMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.2, metalness: 0.4 });
     const jointMat = new THREE.MeshStandardMaterial({ color: 0x333333, metalness: 0.8 });
     const glowMat = new THREE.MeshBasicMaterial({ color: 0x00f3ff, transparent: true, opacity: 0.9 });
 
-    // 1. Torso & Chest Ring
+    // 1. Torso
     const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.2, 1.3, 6), roboMat);
     robotGroup.add(torso);
 
@@ -121,7 +128,7 @@ const RocobotPage: React.FC = () => {
     headGroup.position.y = 1.05;
     robotGroup.add(headGroup);
 
-    // 3. Arms & Detailed Hand Glow
+    // 3. Arms
     const createArm = (side: number) => {
       const armGroup = new THREE.Group();
       armGroup.add(new THREE.Mesh(new THREE.SphereGeometry(0.22, 20, 20), jointMat));
@@ -142,7 +149,6 @@ const RocobotPage: React.FC = () => {
       handGroup.position.y = -1.25;
       handGroup.add(new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.22, 0.12), roboMat));
 
-      // --- KEMBALIKAN HAND GLOW (RING DI PUNGGUNG TANGAN) ---
       const handGlow = new THREE.Mesh(
         new THREE.TorusGeometry(0.06, 0.015, 16, 32), 
         new THREE.MeshBasicMaterial({ color: 0x00f3ff })
@@ -171,7 +177,13 @@ const RocobotPage: React.FC = () => {
       armGroup.rotation.z = side * 0.4;
       return armGroup;
     };
-    robotGroup.add(createArm(-1), createArm(1));
+
+    const leftArm = createArm(-1);
+    const rightArm = createArm(1);
+    leftArmRef.current = leftArm;
+    rightArmRef.current = rightArm;
+    
+    robotGroup.add(leftArm, rightArm);
 
     // 4. Back Ring
     const backRing = new THREE.Mesh(new THREE.TorusGeometry(0.9, 0.08, 16, 100), new THREE.MeshBasicMaterial({ color: 0x00f3ff, transparent: true, opacity: 0.8 }));
@@ -191,18 +203,47 @@ const RocobotPage: React.FC = () => {
       const time = clock.getElapsedTime();
 
       if (neuronParticlesRef.current) neuronParticlesRef.current.rotation.y = time * 0.02;
-      robotGroup.position.y = 0.5 + Math.sin(time * 1.5) * 0.1;
 
-      if (backRingRef.current) {
-        backRingRef.current.position.y = 0.8 + Math.sin(time * 2) * 0.05;
-        backRingRef.current.rotation.z = time * 0.3;
-        (backRingRef.current.material as THREE.MeshBasicMaterial).opacity = 0.6 + Math.abs(Math.sin(time * 2)) * 0.3;
+      // LOGIKA ANIMASI RESPON
+      if (isSpeakingRef.current) {
+        // 1. Badan Mengayun & Rotasi Aktif
+        robotGroup.position.y = 0.5 + Math.sin(time * 2) * 0.15;
+        robotGroup.rotation.z = Math.sin(time * 1.5) * 0.05;
+        robotGroup.rotation.y = Math.cos(time * 1) * 0.1;
+
+        // 2. Gerakan Tangan (Gesticulation)
+        if (leftArmRef.current && rightArmRef.current) {
+          leftArmRef.current.rotation.x = -0.2 + Math.sin(time * 4) * 0.25;
+          rightArmRef.current.rotation.x = -0.2 + Math.cos(time * 4) * 0.25;
+        }
+
+        // 3. Kamera Zoom In
+        camera.position.z = THREE.MathUtils.lerp(camera.position.z, 3.8, 0.05);
+        
+        // 4. Back ring berputar lebih cepat saat 'berpikir/berbicara'
+        if (backRingRef.current) backRingRef.current.rotation.z = time * 2.5;
+      } else {
+        // Mode Standby / Idle
+        robotGroup.position.y = 0.5 + Math.sin(time * 1.5) * 0.1;
+        robotGroup.rotation.z = THREE.MathUtils.lerp(robotGroup.rotation.z, 0, 0.05);
+        robotGroup.rotation.y = THREE.MathUtils.lerp(robotGroup.rotation.y, 0, 0.05);
+
+        if (leftArmRef.current && rightArmRef.current) {
+          leftArmRef.current.rotation.x = THREE.MathUtils.lerp(leftArmRef.current.rotation.x, 0, 0.05);
+          rightArmRef.current.rotation.x = THREE.MathUtils.lerp(rightArmRef.current.rotation.x, 0, 0.05);
+        }
+
+        camera.position.z = THREE.MathUtils.lerp(camera.position.z, 4.5, 0.05);
+        
+        if (backRingRef.current) backRingRef.current.rotation.z = time * 0.3;
       }
 
+      // Animasi Mulut (Speech)
       if (mouthRef.current) {
         mouthRef.current.scale.y = isSpeakingRef.current ? 2 + Math.abs(Math.sin(time * 30)) * 8 : 1;
       }
 
+      // Kedipan Mata
       if (time - lastBlink > 4 && Math.random() > 0.99) {
         [eyeLeftRef.current, eyeRightRef.current].forEach((e) => e && (e.scale.y = 0.1));
         setTimeout(() => [eyeLeftRef.current, eyeRightRef.current].forEach((e) => e && (e.scale.y = 1)), 120);

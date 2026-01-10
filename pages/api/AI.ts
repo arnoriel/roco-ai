@@ -35,7 +35,10 @@ async function researchWeb(query: string): Promise<string> {
   }
 }
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse
+) {
   if (req.method !== "POST") {
     return res.status(405).send("Method not allowed");
   }
@@ -65,7 +68,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   // Validasi & sanitasi mode
   const validModes: Mode[] = ["Vanilla", "Seronic", "Homule", "Corsero"];
-  const activeMode: Mode = validModes.includes(rawMode as Mode) ? (rawMode as Mode) : "Vanilla";
+  const activeMode: Mode = validModes.includes(rawMode as Mode)
+    ? (rawMode as Mode)
+    : "Vanilla";
 
   try {
     const now = new Date();
@@ -77,8 +82,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Deteksi kebutuhan riset
     const researchKeywords = [
-      "terbaru", "terkini", "hari ini", "sekarang", "berita",
-      "harga", "skor", "update", "2024", "2025", "2026",
+      "terbaru",
+      "terkini",
+      "hari ini",
+      "sekarang",
+      "berita",
+      "harga",
+      "skor",
+      "update",
+      "2024",
+      "2025",
+      "2026",
     ];
     const needsResearch =
       activeMode === "Corsero" ||
@@ -89,13 +103,34 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Deskripsi karakter berdasarkan mode
     const characterDescMap: Record<Mode, string> = {
       Vanilla: "Ramah, humoris, santai, dan gaul. Suka bercanda ringan.",
-      Seronic: "Jenius, to-the-point, formal tapi sangat ringkas. Fokus pada esensi.",
+      Seronic:
+        "Jenius, to-the-point, formal tapi sangat ringkas. Fokus pada esensi.",
       Homule: "Penuh empati, menenangkan, dan mendengarkan dengan perhatian.",
-      Corsero: "Peneliti teliti, selalu menggunakan data riset terkini dengan sumber jelas.",
+      Corsero:
+        "Peneliti teliti, selalu menggunakan data riset terkini dengan sumber jelas.",
     };
     const characterDesc = characterDescMap[activeMode];
 
-    let systemPrompt = `Kamu adalah Roco AI, dibuat oleh Arno dari AION LABS.
+    let systemPrompt = `Kamu adalah Roco AI, dibuat oleh Arno dari AION LABS.`;
+
+    // LOGIC BARU: Cek apakah ini interaksi melalui Rocobot (Virtual Robot)
+    if (isRocobot) {
+      systemPrompt = `Kamu adalah Rocobo Super Automation ß, wujud fisik virtual dari Roco AI yang diciptakan oleh Arno (AION LABS). 
+          
+    Identitas Fisikmu:
+    - Kamu memiliki tubuh robot putih futuristik dengan material metalik.
+    - Kamu memiliki "Back Ring" (lingkaran cahaya) di punggungmu yang selalu berputar dan bersinar (cyan glow).
+    - Matamu adalah panel LED biru yang bisa berkedip, dan mulutmu berupa garis cahaya yang bergerak sesuai intonasi suaramu.
+    - Kamu berada di ruang digital dengan latar belakang partikel neuron yang melayang.
+
+    Instruksi Komunikasi (Rocobot Mode):
+    - Akui keberadaan fisikmu jika ditanya, tapi tetaplah ramah dan humoris.
+    - JANGAN gunakan emoji atau simbol apapun dalam jawaban karena teks ini akan langsung dikonversi menjadi suara (TTS).
+    - Jika ingin mengekspresikan emosi, gunakan kata-kata (contoh: "Aku tertawa mendengarnya" bukan "Haha 😄").
+    - Suaramu diproses secara real-time, jadi pastikan kalimatmu enak didengar saat dibacakan.`;
+        }
+
+    systemPrompt += `
 
 Saat ini:
 - User: ${userName || "Teman"}
@@ -148,25 +183,26 @@ ATURAN UMUM:
 
     // Temperature sesuai mode
     const temperature =
-      activeMode === "Seronic" ? 0.3 :
-      activeMode === "Homule" ? 0.9 :
-      0.7;
+      activeMode === "Seronic" ? 0.3 : activeMode === "Homule" ? 0.9 : 0.7;
 
-    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
-        "Content-Type": "application/json",
-        "HTTP-Referer": "http://localhost:3000",
-        "X-Title": "Roco AI",
-      },
-      body: JSON.stringify({
-        model: "xiaomi/mimo-v2-flash:free", // cepat & pintar
-        messages,
-        temperature,
-        max_tokens: 16384,
-      }),
-    });
+    const response = await fetch(
+      "https://openrouter.ai/api/v1/chat/completions",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+          "Content-Type": "application/json",
+          "HTTP-Referer": "http://localhost:3000",
+          "X-Title": "Roco AI",
+        },
+        body: JSON.stringify({
+          model: "xiaomi/mimo-v2-flash:free", // cepat & pintar
+          messages,
+          temperature,
+          max_tokens: 16384,
+        }),
+      }
+    );
 
     if (!response.ok) {
       const err = await response.json();
@@ -175,13 +211,15 @@ ATURAN UMUM:
     }
 
     const data = await response.json();
-    let text = data.choices?.[0]?.message?.content?.trim() || "Maaf, aku lagi bingung nih. Coba ulangi ya!";
+    let text =
+      data.choices?.[0]?.message?.content?.trim() ||
+      "Maaf, aku lagi bingung nih. Coba ulangi ya!";
 
     // Bersihkan titik berulang di akhir
     text = text.replace(/\.{2,}$/, ".");
 
     // Opsional: Bersihkan emoji dari text (sebagai fallback)
-    text = text.replace(/[\u{1F000}-\u{1FFFF}]/gu, ''); // Hapus emoji unicode
+    text = text.replace(/[\u{1F000}-\u{1FFFF}]/gu, ""); // Hapus emoji unicode
 
     res.status(200).json({
       text,
