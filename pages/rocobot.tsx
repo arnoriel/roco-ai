@@ -1,5 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
+// @ts-ignore
+import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -21,7 +23,6 @@ const RocobotPage: React.FC = () => {
   const backRingRef = useRef<THREE.Mesh>(null);
   const neuronParticlesRef = useRef<THREE.Points>(null);
   
-  // Refs untuk animasi tambahan
   const robotGroupRef = useRef<THREE.Group>(null);
   const leftArmRef = useRef<THREE.Group>(null);
   const rightArmRef = useRef<THREE.Group>(null);
@@ -58,6 +59,7 @@ const RocobotPage: React.FC = () => {
   useEffect(() => {
     if (!mountRef.current || isIntroActive) return;
 
+    // 1. Scene & Camera
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0xd3d3d3);
 
@@ -68,6 +70,14 @@ const RocobotPage: React.FC = () => {
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(window.devicePixelRatio);
     mountRef.current.appendChild(renderer.domElement);
+
+    // 2. ORBIT CONTROLS (Fitur Baru)
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true; // Gerakan halus
+    controls.dampingFactor = 0.05;
+    controls.minDistance = 2;      // Batas zoom in
+    controls.maxDistance = 15;     // Batas zoom out
+    controls.target.set(0, 0.5, 0); // Fokus ke badan robot
 
     // --- NEURON BACKGROUND ---
     const particlesCount = 2000;
@@ -95,7 +105,7 @@ const RocobotPage: React.FC = () => {
     const jointMat = new THREE.MeshStandardMaterial({ color: 0x333333, metalness: 0.8 });
     const glowMat = new THREE.MeshBasicMaterial({ color: 0x00f3ff, transparent: true, opacity: 0.9 });
 
-    // 1. Torso
+    // Torso
     const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.2, 1.3, 6), roboMat);
     robotGroup.add(torso);
 
@@ -103,7 +113,7 @@ const RocobotPage: React.FC = () => {
     chestRing.position.set(0, 0.3, 0.65);
     robotGroup.add(chestRing);
 
-    // 2. Head & Face
+    // Head
     const headGroup = new THREE.Group();
     headGroup.add(new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.6, 0.55), roboMat));
     const face = new THREE.Mesh(new THREE.PlaneGeometry(0.7, 0.4), new THREE.MeshBasicMaterial({ color: 0x111111 }));
@@ -128,50 +138,38 @@ const RocobotPage: React.FC = () => {
     headGroup.position.y = 1.05;
     robotGroup.add(headGroup);
 
-    // 3. Arms
+    // Arms
     const createArm = (side: number) => {
       const armGroup = new THREE.Group();
       armGroup.add(new THREE.Mesh(new THREE.SphereGeometry(0.22, 20, 20), jointMat));
-      
       const upper = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.12, 0.6, 8), roboMat);
       upper.position.y = -0.35;
       armGroup.add(upper);
-
       const elbow = new THREE.Mesh(new THREE.SphereGeometry(0.12, 16, 16), jointMat);
       elbow.position.y = -0.7;
       armGroup.add(elbow);
-
       const forearm = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.16, 0.5, 8), roboMat);
       forearm.position.y = -0.95;
       armGroup.add(forearm);
-
       const handGroup = new THREE.Group();
       handGroup.position.y = -1.25;
       handGroup.add(new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.22, 0.12), roboMat));
-
-      const handGlow = new THREE.Mesh(
-        new THREE.TorusGeometry(0.06, 0.015, 16, 32), 
-        new THREE.MeshBasicMaterial({ color: 0x00f3ff })
-      );
+      const handGlow = new THREE.Mesh(new THREE.TorusGeometry(0.06, 0.015, 16, 32), new THREE.MeshBasicMaterial({ color: 0x00f3ff }));
       handGlow.position.set(0, 0, 0.07);
       handGroup.add(handGlow);
-
       const isRightHand = side === 1;
       const thumbSide = isRightHand ? -1 : 1;
-
       const createFinger = (w: number, h: number, x: number, y: number, z: number, rz: number = 0) => {
         const f = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.06), roboMat);
         f.position.set(x, y, z);
         f.rotation.z = rz;
         return f;
       };
-
       handGroup.add(createFinger(0.07, 0.12, thumbSide * 0.16, -0.05, 0, thumbSide * 0.5));
       handGroup.add(createFinger(0.045, 0.14, thumbSide * 0.08, -0.18, 0));
       handGroup.add(createFinger(0.045, 0.16, thumbSide * 0.01, -0.19, 0));
       handGroup.add(createFinger(0.045, 0.14, thumbSide * -0.06, -0.18, 0));
       handGroup.add(createFinger(0.04, 0.11, thumbSide * -0.12, -0.16, 0));
-
       armGroup.add(handGroup);
       armGroup.position.set(side * 0.65, 0.6, 0);
       armGroup.rotation.z = side * 0.4;
@@ -182,10 +180,9 @@ const RocobotPage: React.FC = () => {
     const rightArm = createArm(1);
     leftArmRef.current = leftArm;
     rightArmRef.current = rightArm;
-    
     robotGroup.add(leftArm, rightArm);
 
-    // 4. Back Ring
+    // Back Ring
     const backRing = new THREE.Mesh(new THREE.TorusGeometry(0.9, 0.08, 16, 100), new THREE.MeshBasicMaterial({ color: 0x00f3ff, transparent: true, opacity: 0.8 }));
     backRing.position.set(0, 0.8, -0.5);
     backRingRef.current = backRing;
@@ -202,28 +199,25 @@ const RocobotPage: React.FC = () => {
       requestAnimationFrame(animate);
       const time = clock.getElapsedTime();
 
+      // Update Controls Manual
+      controls.update();
+
       if (neuronParticlesRef.current) neuronParticlesRef.current.rotation.y = time * 0.02;
 
-      // LOGIKA ANIMASI RESPON
       if (isSpeakingRef.current) {
-        // 1. Badan Mengayun & Rotasi Aktif
+        // Badan Mengayun
         robotGroup.position.y = 0.5 + Math.sin(time * 2) * 0.15;
         robotGroup.rotation.z = Math.sin(time * 1.5) * 0.05;
         robotGroup.rotation.y = Math.cos(time * 1) * 0.1;
 
-        // 2. Gerakan Tangan (Gesticulation)
         if (leftArmRef.current && rightArmRef.current) {
           leftArmRef.current.rotation.x = -0.2 + Math.sin(time * 4) * 0.25;
           rightArmRef.current.rotation.x = -0.2 + Math.cos(time * 4) * 0.25;
         }
 
-        // 3. Kamera Zoom In
-        camera.position.z = THREE.MathUtils.lerp(camera.position.z, 3.8, 0.05);
-        
-        // 4. Back ring berputar lebih cepat saat 'berpikir/berbicara'
         if (backRingRef.current) backRingRef.current.rotation.z = time * 2.5;
       } else {
-        // Mode Standby / Idle
+        // Mode Standby
         robotGroup.position.y = 0.5 + Math.sin(time * 1.5) * 0.1;
         robotGroup.rotation.z = THREE.MathUtils.lerp(robotGroup.rotation.z, 0, 0.05);
         robotGroup.rotation.y = THREE.MathUtils.lerp(robotGroup.rotation.y, 0, 0.05);
@@ -232,13 +226,11 @@ const RocobotPage: React.FC = () => {
           leftArmRef.current.rotation.x = THREE.MathUtils.lerp(leftArmRef.current.rotation.x, 0, 0.05);
           rightArmRef.current.rotation.x = THREE.MathUtils.lerp(rightArmRef.current.rotation.x, 0, 0.05);
         }
-
-        camera.position.z = THREE.MathUtils.lerp(camera.position.z, 4.5, 0.05);
         
         if (backRingRef.current) backRingRef.current.rotation.z = time * 0.3;
       }
 
-      // Animasi Mulut (Speech)
+      // Animasi Mulut
       if (mouthRef.current) {
         mouthRef.current.scale.y = isSpeakingRef.current ? 2 + Math.abs(Math.sin(time * 30)) * 8 : 1;
       }
@@ -263,6 +255,7 @@ const RocobotPage: React.FC = () => {
 
     return () => {
       window.removeEventListener("resize", handleResize);
+      controls.dispose(); // Bersihkan kontrol saat unmount
       renderer.dispose();
       mountRef.current?.removeChild(renderer.domElement);
     };
@@ -287,17 +280,8 @@ const RocobotPage: React.FC = () => {
         window.speechSynthesis.cancel();
         const utterance = new SpeechSynthesisUtterance(aiText);
         const voices = window.speechSynthesis.getVoices();
-        
-        const idVoice = 
-          voices.find((v) => v.lang === "id-ID" && v.name.includes("Google")) || 
-          voices.find((v) => v.lang.includes("id")) || 
-          voices[0];
-
-        if (idVoice) {
-          utterance.voice = idVoice;
-          utterance.lang = "id-ID";
-        }
-
+        const idVoice = voices.find((v) => v.lang === "id-ID" && v.name.includes("Google")) || voices.find((v) => v.lang.includes("id")) || voices[0];
+        if (idVoice) { utterance.voice = idVoice; utterance.lang = "id-ID"; }
         utterance.pitch = 0.6;
         utterance.rate = 1.0;
         utterance.onstart = () => { isSpeakingRef.current = true; };
@@ -326,57 +310,26 @@ const RocobotPage: React.FC = () => {
           >
             {introStep === 0 && (
               <div className="relative flex items-center justify-center">
-                <motion.div
-                  initial={{ scale: 0 }}
-                  animate={{ scale: [0, 1.5, 1], boxShadow: "0px 0px 30px 10px #00f3ff" }}
-                  transition={{ duration: 1 }}
-                  className="w-4 h-4 bg-cyan-400 rounded-full z-50"
-                />
+                <motion.div initial={{ scale: 0 }} animate={{ scale: [0, 1.5, 1], boxShadow: "0px 0px 30px 10px #00f3ff" }} transition={{ duration: 1 }} className="w-4 h-4 bg-cyan-400 rounded-full z-50" />
                 {[...Array(3)].map((_, i) => (
-                  <motion.div
-                    key={i}
-                    animate={{ scale: [1, 2.5], opacity: [0.5, 0] }}
-                    transition={{ repeat: Infinity, duration: 0.8, delay: i * 0.2 }}
-                    className="absolute w-12 h-12 border border-cyan-500 rounded-full blur-sm"
-                  />
+                  <motion.div key={i} animate={{ scale: [1, 2.5], opacity: [0.5, 0] }} transition={{ repeat: Infinity, duration: 0.8, delay: i * 0.2 }} className="absolute w-12 h-12 border border-cyan-500 rounded-full blur-sm" />
                 ))}
               </div>
             )}
-
             {introStep >= 1 && (
               <>
-                <motion.div
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 150 }}
-                  transition={{ duration: 1.2, ease: "circIn" }}
-                  className="absolute w-10 h-10 bg-cyan-100 rounded-full"
-                />
+                <motion.div initial={{ scale: 0 }} animate={{ scale: 150 }} transition={{ duration: 1.2, ease: "circIn" }} className="absolute w-10 h-10 bg-cyan-100 rounded-full" />
                 {introStep === 1 && (
-                  <motion.h1
-                    initial={{ opacity: 0, scale: 0.5, letterSpacing: "20px" }}
-                    animate={{ opacity: 1, scale: 1, letterSpacing: "4px" }}
-                    className="z-50 text-4xl font-black text-gray-800 font-mono italic"
-                  >
+                  <motion.h1 initial={{ opacity: 0, scale: 0.5, letterSpacing: "20px" }} animate={{ opacity: 1, scale: 1, letterSpacing: "4px" }} className="z-50 text-4xl font-black text-gray-800 font-mono italic">
                     ROCOBOT: ON
                   </motion.h1>
                 )}
               </>
             )}
-
             {introStep === 2 && (
-              <motion.div 
-                initial={{ opacity: 0 }} 
-                animate={{ opacity: 1 }} 
-                className="z-50 flex flex-col items-center"
-              >
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="z-50 flex flex-col items-center">
                 <h2 className="text-xl font-light tracking-[0.8em] text-gray-500 uppercase">Super Automation</h2>
-                <motion.span 
-                  animate={{ scale: [1, 1.2, 1] }} 
-                  transition={{ repeat: Infinity, duration: 2 }}
-                  className="text-6xl font-bold text-gray-900 mt-2"
-                >
-                  ß
-                </motion.span>
+                <motion.span animate={{ scale: [1, 1.2, 1] }} transition={{ repeat: Infinity, duration: 2 }} className="text-6xl font-bold text-gray-900 mt-2">ß</motion.span>
               </motion.div>
             )}
           </motion.div>
@@ -384,7 +337,7 @@ const RocobotPage: React.FC = () => {
       </AnimatePresence>
 
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,_rgba(0,0,0,0.05)_0%,_transparent_100%)] pointer-events-none" />
-      <div ref={mountRef} className="absolute inset-0" />
+      <div ref={mountRef} className="absolute inset-0 cursor-grab active:cursor-grabbing" />
 
       <Link href="/">
         <button className="absolute top-6 left-6 z-20 px-5 py-2 bg-white/40 backdrop-blur-xl text-gray-800 rounded-full text-[10px] font-bold uppercase tracking-widest border border-white/20">
