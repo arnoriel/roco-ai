@@ -56,6 +56,9 @@ export default function Home() {
   const [typewriterIntervalId, setTypewriterIntervalId] = useState<NodeJS.Timeout | null>(null);
   const [interruptedIndex, setInterruptedIndex] = useState<number | null>(null);
 
+  // --- STATE LOKASI ---
+  const [userLocation, setUserLocation] = useState<string | null>(null);
+
   const createNewChat = (isInitial = false) => {
     const newId = Date.now().toString();
     const newSession = { id: newId, title: "Chat Baru", messages: [], createdAt: Date.now() };
@@ -66,6 +69,40 @@ export default function Home() {
     }
     setActiveSessionId(newId);
   };
+
+  // Logic Geolocation (Dijalankan setiap refresh/load)
+  useEffect(() => {
+    const fetchLocation = () => {
+      if ("geolocation" in navigator) {
+        navigator.geolocation.getCurrentPosition(
+          async (position) => {
+            const { latitude, longitude } = position.coords;
+            try {
+              // Reverse Geocoding menggunakan Nominatim (OpenStreetMap)
+              const response = await fetch(
+                `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`
+              );
+              const data = await response.json();
+              if (data && data.display_name) {
+                setUserLocation(data.display_name);
+              } else {
+                setUserLocation(`Koordinat: ${latitude}, ${longitude}`);
+              }
+            } catch (err) {
+              console.error("Gagal reverse geocoding:", err);
+              setUserLocation(`Koordinat: ${latitude}, ${longitude}`);
+            }
+          },
+          (err) => {
+            console.warn("Izin lokasi ditolak atau error:", err.message);
+            setUserLocation("Lokasi tidak diizinkan oleh user.");
+          },
+          { enableHighAccuracy: true }
+        );
+      }
+    };
+    fetchLocation();
+  }, []);
 
   useEffect(() => {
     const savedSessions = localStorage.getItem("roco_sessions");
@@ -244,7 +281,8 @@ export default function Home() {
           prompt: messageToSend,
           history: updatedHistory.slice(0, -1),
           userName: userProfile?.name,
-          mode: selectedMode
+          mode: selectedMode,
+          userLocation: userLocation || "Sedang mencari lokasi..."
         }),
       });
       const data = await response.json();

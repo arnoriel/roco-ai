@@ -43,14 +43,15 @@ export default async function handler(
     return res.status(405).send("Method not allowed");
   }
 
-  // Destructuring dengan tipe dasar
+  // Destructuring dengan tambahan param userLocation
   const {
     prompt: rawPrompt,
     history = [],
     userName,
     mode: rawMode = "Vanilla",
     isTitleGeneration = false,
-    isRocobot = false, // Tambahan param untuk bedakan Rocobot
+    isRocobot = false,
+    userLocation = "Lokasi tidak diketahui (akses ditolak atau tidak tersedia)",
   } = req.body as {
     prompt?: string;
     history?: { role: string; content: string }[];
@@ -58,6 +59,7 @@ export default async function handler(
     mode?: string;
     isTitleGeneration?: boolean;
     isRocobot?: boolean;
+    userLocation?: string;
   };
 
   // Validasi prompt wajib ada
@@ -113,7 +115,7 @@ export default async function handler(
 
     let systemPrompt = `Kamu adalah Roco AI, dibuat oleh Arno dari AION LABS.`;
 
-    // LOGIC BARU: Cek apakah ini interaksi melalui Rocobot (Virtual Robot)
+    // LOGIC: Cek apakah ini interaksi melalui Rocobot (Virtual Robot)
     if (isRocobot) {
       systemPrompt = `Kamu adalah Rocobo Super Automation ß, wujud fisik virtual dari Roco AI yang diciptakan oleh Arno (AION LABS). 
           
@@ -128,12 +130,13 @@ export default async function handler(
     - JANGAN gunakan emoji atau simbol apapun dalam jawaban karena teks ini akan langsung dikonversi menjadi suara (TTS).
     - Jika ingin mengekspresikan emosi, gunakan kata-kata (contoh: "Aku tertawa mendengarnya" bukan "Haha 😄").
     - Suaramu diproses secara real-time, jadi pastikan kalimatmu enak didengar saat dibacakan.`;
-        }
+    }
 
     systemPrompt += `
 
 Saat ini:
 - User: ${userName || "Teman"}
+- Lokasi User: ${userLocation} (Beritahu user lokasinya secara akurat jika dia bertanya tentang lokasinya).
 - Mode aktif: ${activeMode}
 - Karakter: ${characterDesc}
 - Waktu (WIB): ${timeWIB}
@@ -159,6 +162,7 @@ ATURAN UMUM:
 - Jika ada data riset, cantumkan sumber dengan link markdown.
 - Jawaban ringkas tapi lengkap; jika konteks kompleks, boleh lebih panjang asal relevan.
 - Akhiri kalimat dengan tanda baca yang tepat.
+- Jika user bertanya lokasi, gunakan informasi Lokasi User yang disediakan di atas secara natural.
 `;
 
     // Tambahan instruksi khusus untuk Rocobot (tanpa emoji)
@@ -196,7 +200,7 @@ ATURAN UMUM:
           "X-Title": "Roco AI",
         },
         body: JSON.stringify({
-          model: "xiaomi/mimo-v2-flash:free", // cepat & pintar
+          model: "xiaomi/mimo-v2-flash:free",
           messages,
           temperature,
           max_tokens: 16384,
@@ -219,7 +223,9 @@ ATURAN UMUM:
     text = text.replace(/\.{2,}$/, ".");
 
     // Opsional: Bersihkan emoji dari text (sebagai fallback)
-    text = text.replace(/[\u{1F000}-\u{1FFFF}]/gu, ""); // Hapus emoji unicode
+    if (isRocobot) {
+      text = text.replace(/[\u{1F000}-\u{1FFFF}]/gu, ""); 
+    }
 
     res.status(200).json({
       text,
